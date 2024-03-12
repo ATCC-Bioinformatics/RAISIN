@@ -1,5 +1,5 @@
 # Introduction 
-TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project. 
+ATCC presents RAISIN (Retrieving Amino acid Implications from Sequencing IteratioNs), a simple, fast, and accurate variant annotation pipeline built for characterizing and notating variants given a pair of Illumina sequencing FASTQs and an NCBI reference accession number
 
 # Getting Started
 TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:
