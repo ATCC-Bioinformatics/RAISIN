@@ -73,10 +73,13 @@ EOF
 
     ----------------------------------------------------------------------------------------------
     SERIAL_COMPARE mode:
-      # Example 1: bash run_raisin.sh -m SERIAL_COMPARE -x sample1_variants.txt -y sample2_variants.txt -o comp_results -f sample1_vs_sample2
+      # Example 1: bash run_raisin.sh -m SERIAL_COMPARE -x sample1_variants.txt -y sample2_variants.txt 
+                    -o comp_results -f sample1_vs_sample2 -X Sample_1 -Y Sample_2
       -m standard,
       -x filepath to first variants.txt to compare,
       -y filepath to second variants.txt to compare,
+      -X identifier for first variants.txt, i.e. Passage_0
+      -Y identifier for second variants.txt, i.e. Passage_1
     ----------------------------------------------------------------------------------------------
     
     Additional Help:
@@ -102,7 +105,7 @@ EOF
     exit 1
 }
 
-while getopts 'm:s:1:2:o:f:r:g:t:a:n:e:v:w:k:b:x:y:dh' OPTION
+while getopts 'm:s:1:2:o:f:r:g:t:a:n:e:v:w:k:b:x:y:X:Y:dh' OPTION
 do
   case "$OPTION" in
     m) MODE=$OPTARG
@@ -140,6 +143,10 @@ do
     x) VARIANTS_PATH=$OPTARG
       ;;
     y) VARIANTS_PATH_2=$OPTARG
+      ;;
+    X) SAMPLE_NAME_1=$OPTARG
+      ;;
+    Y) SAMPLE_NAME_2=$OPTARG
       ;;
     d) DOWNLOAD="true"
       ;;
@@ -238,10 +245,17 @@ fi
 # #### * Set main output path and make log file ####
 output_path="$WORKING_DIR"
 log_path="$WORKING_DIR"/"$OUTPUT_NAME".log
+outdir=$WORKING_DIR/raisin_results_"$MODE"
+
 if [ ! -d "$output_path" ]
 then
   mkdir -p $output_path
   chmod -R 775 "$output_path"
+fi
+if [ ! -d "$outdir" ]
+then
+  mkdir -p $outdir
+  chmod -R 775 "$outdir"
 fi
 if [ ! -f "$log_path" ]
 then
@@ -269,6 +283,8 @@ if [ $MODE == "SERIAL_COMPARE" ]
 then
   echo "VARIANT TXT 1: $VARIANTS_PATH" | tee -a "$log_path" >&2
   echo "VARIANT TXT 2: $VARIANTS_PATH_2" | tee -a "$log_path" >&2
+  echo "VARIANT 1 IDENTIFIER: $SAMPLE_NAME_1" | tee -a "$log_path" >&2
+  echo "VARIANT 2 IDENTIFIER: $SAMPLE_NAME_2" | tee -a "$log_path" >&2
 else
   echo "INPUT MODE: $INPUT" | tee -a "$log_path" >&2
   echo "FWD: $FWD" | tee -a "$log_path" >&2
@@ -333,6 +349,7 @@ then
     logger "reference and GBK file download from NCBI using $download_name" "DONE" | tee -a "$log_path" >&2
   fi
 fi
+#### ! Reference Download DONE ####################################
 
 #### ! Check if all file paths exist is present ###########################
 
@@ -368,74 +385,42 @@ do
 done
 
 
+echo "$(date) Running in $MODE mode..." | tee -a "$log_path" >&2
+if [ $MODE == "SERIAL_COMPARE" ]
+then
+  python combine_variant_txt.py $VARIANTS_PATH $VARIANTS_PATH_2 $SAMPLE_NAME_1 $SAMPLE_NAME_2 $outdir
+else
+  if [ $INPUT == "SEQ" ]
+  then
+    consensus \
+        $outdir \
+        $OUTPUT_NAME \
+        $FWD \
+        $REV \
+        $THREADS \
+        $REF
+    
+    ref_id=$(basename $REF .fasta)
+    vcf_path=$outdir/"$OUTPUT_NAME"_"reads_to_reference"_"$ref_id"_lofreq.vcf
+    variants_txt=$outdir/"$OUTPUT_NAME"_"reads_to_reference"_"$ref_id"_lofreq_variants.txt
 
-# #### ! Reference Download DONE ####################################
-# runID=$(echo $FWD | cut -c1-11)
+    if [ $MODE == "ANCHOR" ]
+    then
+      reads_to_reference_consensus=????????????
+      echo "Needs coding"
+      cat $REF > $outdir/"$OUTPUT_NAME"_mafft_input.fasta
+      cat $ANCHOR_REF >> $outdir/"$OUTPUT_NAME"_mafft_input.fasta
+      cat $reads_to_reference_consensus >> $outdir/"$OUTPUT_NAME"_mafft_input.fasta
+      mafft $outdir/"$OUTPUT_NAME"_mafft_input.fasta > $outdir/"$OUTPUT_NAME"_mafft_alignment.fasta
+  fi
+  #! Add user defined location of variants.txt
+  if [ $MODE == "STANDARD" ]
+  then
+    python universal_raisin.py $VCF $REF $GBK
+  fi
+fi
 
-# echo "Running consensus pipeline" | tee -a "$log_path" >&2
-# consensus \
-#   $WORKING_DIR \
-#   $tag \
-#   $NGS_ID \
-#   $FWD \
-#   $REV \
-#   $THREADS \
-#   $nucID \
-#   $REF
 
-
-# ref_id=$(basename $REF .fasta)
-# outdir=$output_path/consensus_results"$tag"
-# vcf_path=$outdir/"$NGS_ID"_"reads_to_reference"_"$ref_id"_lofreq.vcf
-# variants_txt=$outdir/"$NGS_ID"_"reads_to_reference"_"$ref_id"_lofreq_variants.txt
-
-# if [ ! -f $variants_txt ]
-# then
-#   if [ ! -f $vcf_path ]
-#   then
-#     echo "$(date) VCF does not exist, check consensus results logs" | tee -a "$log_path" >&2
-#     continue
-#   else
-#     logger "creation of variants.txt for raisin" "Start" | tee -a "$log_path" >&2 
-#     source /opt/conda/etc/profile.d/conda.sh
-#     conda init bash
-#     conda deactivate
-#     ### activate raisin environment and run raisin
-#     source /home/shared/service-data/MERS/feature_viewer_env/bin/activate
-#     python $oatmeal_path/scripts_for_raisin/universal_raisin.py "$vcf_path" $REF $GBK
-#     ### deactivate raisin environment
-#     deactivate
-#     source /opt/conda/etc/profile.d/conda.sh
-#     conda activate oatmeal_2024JAN_V2.bak
-
-#     if [ -f $variants_txt ]
-#     then
-#       logger "creation of variants.txt for raisin" "True" | tee -a "$log_path" >&2 
-#     else
-#       logger "creation of variants.txt for raisin" "Fail" | tee -a "$log_path" >&2 
-#     fi
-#   fi
-# else
-#   logger "creation of variants.txt for raisin" "Pass" | tee -a "$log_path" >&2 
-# fi
-
-# docx=$( ls "$output_path"/*.docx 2>/dev/null ) # 2>/dev/null mutes the error message if the file can't be found
-# if [ -z $docx ]
-# then
-#     echo "$(date) Creating report in 'consensus' mode." | tee -a "$log_path" >&2
-#     /home/src/anaconda3/envs/oatmeal_2024JAN_V2/bin/Rscript $oatmeal_path/bowl.R -o $WORKING_DIR -n $NGS_ID -r $REF -c -p $PIPELINE -b $oatmeal_path -v $variants_txt
-# else
-#   echo "$(date) Report already created" | tee -a "$log_path" >&2
-# fi
-# #     echo "$(date) Report was not created, maybe a sample.json issue. Manually creating it" | tee -a "$log_path" >&2
-# #     python $oatmeal_path/scripts_for_raisin/create_sample_json.py \
-# #         $oatmeal_path/scripts_for_raisin/sample_template.json \
-# #         "$output_path"/pre_QC/fastp.json \
-# #         "$NGS_ID" \
-# #         "$output_path"
-
-# #     Rscript $oatmeal_path/bowl.R -o $WORKING_DIR -n $NGS_ID -r $REF -c -p $PIPELINE -b $oatmeal_path
-# # fi
 #   #! ANCHOR mode must providing sequencing reads
 #   #! anchor mode: map reads to strain reference, call variants, call consensus, mafft, retrive variants.txt
 #   reads_to_reference_consensus=""
