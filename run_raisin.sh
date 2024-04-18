@@ -45,19 +45,13 @@ EOF
     ANCHOR mode:
       # Example 1: bash run_raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor
                           -n MN02121.1 -b MZ45991.1 -e username@gmail.com -d
-      # Example 2: bash run_raisin.sh -m ANCHOR -s VCF-v sample1.vcf -w anchor.vcf -o sample1_results -f sample1_vs_anchor
+      # Example 2: bash run_raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor
                           -r MN02121.1.fasta -g MN02121.1.gbk -a MZ45991.1.fasta -k MZ45991.1.gbk
       -m ANCHOR,
       ****** Inputs ******
-        Option 1 (if using sequencing reads):
           -s SEQ (to indicate using sequencing reads),
           -1 for filepath to forward Illumina fastq file,
           -2 for filepath to reverse Illumina fastq file
-
-        Option 2 (if using a VCF)
-          -s VCF (to indicate using a VCF)
-          -v for filepath to user generated VCF using strain reference,
-          -w for filepath to user generated VCF using anchor reference
 
       ****** For References ******
         Option 1:
@@ -72,8 +66,8 @@ EOF
           -e for Entrez email address to use to download references
 
     ----------------------------------------------------------------------------------------------
-    SERIAL_COMPARE mode:
-      # Example 1: bash run_raisin.sh -m SERIAL_COMPARE -x sample1_variants.txt -y sample2_variants.txt 
+    COMPARE mode:
+      # Example 1: bash run_raisin.sh -m COMPARE -x sample1_variants.txt -y sample2_variants.txt 
                     -o comp_results -f sample1_vs_sample2 -X Sample_1 -Y Sample_2
       -m standard,
       -x filepath to first variants.txt to compare,
@@ -158,9 +152,9 @@ done
 shift "$(($OPTIND -1))"
 
 # #### ? Checking flags ####################################
-if [ -z $MODE ] || ([ $MODE != "STANDARD" ] && [ $MODE != 'ANCHOR' ] && [ $MODE != 'SERIAL_COMPARE' ])
+if [ -z $MODE ] || ([ $MODE != "STANDARD" ] && [ $MODE != 'ANCHOR' ] && [ $MODE != 'COMPARE' ])
 then
-  echo "Mode (-m) must be supplied! Choose between 'STANDARD', 'ANCHOR', or 'SERIAL_COMPARE'"  
+  echo "Mode (-m) must be supplied! Choose between 'STANDARD', 'ANCHOR', or 'COMPARE'"  
   exit
 fi
 if [ -z $WORKING_DIR ] # if no working directory is supplied
@@ -183,7 +177,7 @@ then
       echo "Please supply forward and reverse Illumina reads using the (-1) and (-2) flags."
       exit  
     fi
-  elif [ $INPUT == "VCF" ]
+  elif [ $INPUT == "VCF" ] && [ $MODE == "STANDARD" ]
   then
     if [ -z $VCF ]
     then
@@ -191,12 +185,10 @@ then
       echo "Please supply a VCF using the (-v) flag."
       exit  
     fi
-    if [ -z $ANCHOR_VCF ] && [ $MODE == "ANCHOR" ]
-    then
-      echo "ANCHOR mode has been selected with VCF input mode, but no ANCHOR VCF was given."
-      echo "Please supply a VCF that was generated based on the ANCHOR reference using the (-w) flag"
-      exit
-    fi
+  elif [ $INPUT == "VCF" ] && [ $MODE == "ANCHOR" ]
+  then
+    echo "ANCHOR mode cannot be run in VCP input mode, please only run in SEQ input mode"
+    exit
   fi
 
   if [ ! -z $DOWNLOAD ] # if users want to download a reference
@@ -229,11 +221,11 @@ then
       exit
     fi
   fi
-elif [ $MODE == "SERIAL_COMPARE" ]
+elif [ $MODE == "COMPARE" ]
 then
     if [ -z $VARIANTS_PATH ] && [ -z $VARIANTS_PATH_2 ]
     then
-      echo "SERIAL_COMPARE mode was selected, but the paths to the two variant txt files to be compared should be provided"
+      echo "COMPARE mode was selected, but the paths to the two variant txt files to be compared should be provided"
       echo "Please use flags (-x) and (-y)"
       exit
     fi
@@ -246,6 +238,7 @@ fi
 output_path="$WORKING_DIR"
 log_path="$WORKING_DIR"/"$OUTPUT_NAME".log
 outdir=$WORKING_DIR/raisin_results_"$MODE"
+source raisin_functions.sh
 
 if [ ! -d "$output_path" ]
 then
@@ -279,7 +272,7 @@ echo "MODE: $MODE" | tee -a "$log_path" >&2
 echo "WORKING_DIR: $WORKING_DIR" | tee -a "$log_path" >&2
 echo "OUTPUT_NAME: $OUTPUT_NAME" | tee -a "$log_path" >&2
 echo "THREADS: $THREADS" | tee -a "$log_path" >&2
-if [ $MODE == "SERIAL_COMPARE" ]
+if [ $MODE == "COMPARE" ]
 then
   echo "VARIANT TXT 1: $VARIANTS_PATH" | tee -a "$log_path" >&2
   echo "VARIANT TXT 2: $VARIANTS_PATH_2" | tee -a "$log_path" >&2
@@ -289,16 +282,19 @@ else
   echo "INPUT MODE: $INPUT" | tee -a "$log_path" >&2
   echo "FWD: $FWD" | tee -a "$log_path" >&2
   echo "REV: $REV" | tee -a "$log_path" >&2
-  echo "STRAIN VCF: $VCF" | tee -a "$log_path" >&2
+  echo "STRAIN VCF (STANDARD ONLY): $VCF" | tee -a "$log_path" >&2
   echo "REFERENCE PATH: $REF" | tee -a "$log_path" >&2
   echo "GBK PATH: $GBK" | tee -a "$log_path" >&2
-  echo "ANCHOR REFERENCE PATH: $ANCHOR_REF" | tee -a "$log_path" >&2
-  echo "ANCHOR GBK PATH: $ANCHOR_GBK" | tee -a "$log_path" >&2
   echo "DOWNLOAD REFERENCES: $DOWNLOAD" | tee -a "$log_path" >&2
   echo "ACCESSION: $ACCESSION" | tee -a "$log_path" >&2
-  echo "ANCHOR ACCESSION: $ANCHOR_ACC" | tee -a "$log_path" >&2
   echo "ORGANISM NAME: $ORG_NAME" | tee -a "$log_path" >&2
   echo "EMAIL: $EMAIL" | tee -a "$log_path" >&2
+  if [ $MODE == "ANCHOR" ]
+  then
+    echo "ANCHOR REFERENCE PATH: $ANCHOR_REF" | tee -a "$log_path" >&2
+    echo "ANCHOR GBK PATH: $ANCHOR_GBK" | tee -a "$log_path" >&2
+    echo "ANCHOR ACCESSION: $ANCHOR_ACC" | tee -a "$log_path" >&2
+  fi
 fi
 echo "--------------------------------------------------------------------------------------------------------------------------------------------------------------------" | tee -a "$log_path" >&2
 
@@ -349,11 +345,11 @@ then
     logger "reference and GBK file download from NCBI using $download_name" "DONE" | tee -a "$log_path" >&2
   fi
 fi
-#### ! Reference Download DONE ####################################
+# #### ! Reference Download DONE ####################################
 
 #### ! Check if all file paths exist is present ###########################
 
-if [ $MODE == "SERIAL_COMPARE" ]
+if [ $MODE == "COMPARE" ]
 then
   file_check=($VARIANTS_PATH $VARIANTS_PATH_2)
 elif [ $MODE == "STANDARD" ]
@@ -370,7 +366,7 @@ then
   then
     file_check=($FWD $REV $REF $GBK $ANCHOR_REF $ANCHOR_GBK)
   else
-    file_check=($VCF $ANCHOR_VCF $REF $GBK $ANCHOR_REF $ANCHOR_GBK)
+    file_check=($VCF $REF $GBK $ANCHOR_REF $ANCHOR_GBK)
   fi
 fi
 
@@ -386,7 +382,7 @@ done
 
 
 echo "$(date) Running in $MODE mode..." | tee -a "$log_path" >&2
-if [ $MODE == "SERIAL_COMPARE" ]
+if [ $MODE == "COMPARE" ]
 then
   python combine_variant_txt.py $VARIANTS_PATH $VARIANTS_PATH_2 $SAMPLE_NAME_1 $SAMPLE_NAME_2 $outdir
 else
@@ -404,33 +400,43 @@ else
     vcf_path=$outdir/"$OUTPUT_NAME"_"reads_to_reference"_"$ref_id"_lofreq.vcf
     variants_txt=$outdir/"$OUTPUT_NAME"_"reads_to_reference"_"$ref_id"_lofreq_variants.txt
 
-    if [ $MODE == "ANCHOR" ]
+    if [ $MODE == "ANCHOR" ] #! Does ANCHOR only work with reads?? (Yes!)
     then
-      reads_to_reference_consensus=????????????
-      echo "Needs coding"
-      cat $REF > $outdir/"$OUTPUT_NAME"_mafft_input.fasta
+      reads_to_reference_consensus=$outdir/"$OUTPUT_NAME"_"reads_to_reference"_"$ref_id"_consensus.fasta
       cat $ANCHOR_REF >> $outdir/"$OUTPUT_NAME"_mafft_input.fasta
+      cat $REF > $outdir/"$OUTPUT_NAME"_mafft_input.fasta
       cat $reads_to_reference_consensus >> $outdir/"$OUTPUT_NAME"_mafft_input.fasta
       mafft $outdir/"$OUTPUT_NAME"_mafft_input.fasta > $outdir/"$OUTPUT_NAME"_mafft_alignment.fasta
-  fi
-  #! Add user defined location of variants.txt
-  if [ $MODE == "STANDARD" ]
+      
+      mafft_file=$outdir/"$OUTPUT_NAME"_mafft_alignment.fasta
+      python universal_raisin.py \
+        $vcf_path \
+        $ANCHOR_GBK \
+        $MODE \
+        $OUTPUT_NAME \
+        $outdir \
+        $mafft_file
+    
+    elif [ $MODE == "STANDARD" ]
+    then
+      python universal_raisin.py \
+        $vcf_path \
+        $GBK \
+        $MODE \
+        $OUTPUT_NAME \
+        $outdir
+    fi
+  
+  elif [ $INPUT == "VCF" ] && [ $MODE == "STANDARD" ]
   then
-    python universal_raisin.py $VCF $REF $GBK
+    python universal_raisin.py \
+        $vcf_path \
+        $GBK \
+        $MODE \
+        $OUTPUT_NAME \
+        $outdir
   fi
 fi
 
 
-#   #! ANCHOR mode must providing sequencing reads
-#   #! anchor mode: map reads to strain reference, call variants, call consensus, mafft, retrive variants.txt
-#   reads_to_reference_consensus=""
-#   reads_to_reference_final_vcf=""
-
-#   cat $REF > $WORKING_DIR/"$OUTPUT_NAME"_mafft_input.fasta
-#   cat $ANCHOR_REF >> $WORKING_DIR/"$OUTPUT_NAME"_mafft_input.fasta
-#   cat $reads_to_reference_consensus >> $WORKING_DIR/"$OUTPUT_NAME"_mafft_input.fasta
-#   mafft $WORKING_DIR/"$OUTPUT_NAME"_mafft_input.fasta > $WORKING_DIR/"$OUTPUT_NAME"_mafft_alignment.fasta
-
-#   # Iterate down alignment and determine variant type, genetic region, codon mutation, etc.
-#   variant_script_path=$(dirname "$0")/BEI_variants.py
-#   python3 $variant_script_path -f $reference_dir_path/"$OUTPUT_NAME"_mafft_alignment.fasta -v $reads_to_reference_final_vcf -o $WORKING_DIR/variants.txt
+echo "$(date) RAISIN completed successfully!" | tee -a "$log_path" >&2
