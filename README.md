@@ -16,12 +16,13 @@ TODO: Guide users through getting your code up and running on their own system. 
 4.	API references
 
 # Usage
+```
 Usage: 
     -o for top-level output/working directory (required),
     -f for an output name to add to the beginning of all generated files (optional, default=RAISIN_analysis),
     -t for threads (optional, default=8),
 
-####### RAISIN Modes ####################
+# RAISIN Modes ####################
 ----------------------------------------------------------------------------------------------
 STANDARD mode:
     # Example 1: bash run_raisin.sh -m STANDARD -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results 
@@ -101,7 +102,7 @@ Option 2:
     -e for Entrez email address to use to download references,
 
 ################################
-
+```
 # Contribute
 TODO: Explain how other users and developers can contribute to make your code better. 
 
