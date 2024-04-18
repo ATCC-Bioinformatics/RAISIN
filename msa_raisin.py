@@ -311,13 +311,17 @@ for r in SeqIO.parse(open(gbk), "genbank"):
 anchor_seq=anchor.replace("-", "")
 strain_seq=strain.replace("-", "")
 
+# Grab the start position of where the first protein starts (to know where 5'UTR ends)
+first_start = min([int(features[k]['start']) for k in features.keys()])
+# Grab the end position of where the last protein ends (to know where 3'UTR begins)
+last_end = max([int(features[k]['end']) for k in features.keys()])
 ##! SNPs seem to stop at 13468
 deletion_pos = []
 msa_variants = {}
 for pos in position_dict.keys():
-    print(pos)
+    # print(pos)
     for k in features.keys(): #where features is a parsed gbk)
-        print("Entered gbk loop ", k)
+        # print("Entered gbk loop ", k)
         start = int(features[k]['start'])
         end = int(features[k]['end'])
         alt_pos = position_dict[pos]
@@ -329,18 +333,19 @@ for pos in position_dict.keys():
         ##* INSERTION!! # insertions are represented like this in the dict: {4-5: [1, 2, 3, 4]}, we want to change it to strain_seq[1:5]
         if type(pos) == str and "-" in pos: # if position is a string, i.e. "-", then we're in an insertion, i.e. "3-4" or "-1-0"
             print("Insertion")
-            if pos.count("-") == 2:
+            if pos.count("-") == 2: #.e. "-1-0"
                 print("WARNING: The reference genome hasn't started yet. Looks like the strain reference might be longer than the anchor reference.")
                 break
             else:
                 ref_start = pos.split("-")[0]
                 ref = anchor_seq[ref_start]
             if ref_start > features[k]['start'] and ref_start < features[k]['end']: # check region based on ref position
-                ins_start = alt_pos[0] - 1 # we want to grab the nucleotide right before the insertion, so we substract 1
+                one_before_ins = alt_pos[0] - 1 # we want to grab the nucleotide right before the insertion, so we substract 1
+                ins_start = alt_pos[0] + 1 # adding 1 because python is 0-index
                 ins_end = alt_pos[-1] + 1 # we add 1 because this will include the last position
-                alt = strain_seq[ins_start:ins_end]
+                alt = strain_seq[one_before_ins:ins_end]
                 insertion_nucleotides = strain_seq[alt_pos[0]:ins_end]
-                msa_variants[full_position] = [str(ins_start), ref, alt, "100%", "INS", original_aa, mutated_aa]
+                msa_variants[ins_start] = ["INS", ref, alt, "1.000000", original_aa, mutated_aa]
                 mutated_region = get_mutated_region(protein,reference,ref_start,ref,alt)
                 mutated_translation = ""
                 for i in range(0,len(mutated_region),3):
@@ -349,44 +354,48 @@ for pos in position_dict.keys():
                         break
                     else:
                         mutated_translation+=aa
-                msa_variants[full_position].append(protein)
-                msa_variants[full_position].append(indel_notation(region_translation,mutated_translation,len(insertion_nucleotides)%3!=0,"ins"))
+                msa_variants[ins_start].append(protein)
+                msa_variants[ins_start].append(indel_notation(region_translation,mutated_translation,len(insertion_nucleotides)%3!=0,"ins"))
         elif alt_pos == [-1]:
             print("Strain reference hasn't started, skipping")
             break
         elif pos > int(features[k]['start']) and pos < int(features[k]['end']):
-            ## * DELETION!! # {9: [4], 10: [4], 11: [4]}
+            ## * DELETION!! # {8:4, 9: [4], 10: [4], 11: [4], 12:5}
             if type(alt_pos) == list:
                 print("Deletion")
                 # Grab all the positions of the deletion
                 deletion_pos.append(pos)
-                if pos+1 >= len(position_dict.keys()):
-                    print("Position at end of reference!")
-                else:
-                    if alt_pos == position_dict[pos+1]: #if we're still in the deletion, keep moving through
-                        continue
-                    else: # we've reached the end of the deletion
-                        print(deletion_pos)
-                        print(alt_pos)
-                        del_start = deletion_pos[0] - 1
-                        del_end = deletion_pos[-1] + 1
-                        deleted_nucs = anchor_seq[deletion_pos[0]:del_end]
-                        deletion_pos = [] ## reset deletion pos
-                        ref = anchor_seq[del_start:del_end]
-                        alt = strain_seq[alt_pos[0]]
-                        mutated_region = get_mutated_region(protein,reference,del_start,ref,alt)
-                        mutated_translation = ""
-                        msa_variants[full_position] = [str(del_start), ref, alt, "100%", "DEL", original_aa, mutated_aa]
-                        for i in range(0,len(mutated_region),3):
-                            aa = genetic_code(mutated_region[i:i+3].upper())
-                            if i+3>len(mutated_region)-1 or aa == "*":
-                                break
-                            else:
-                                mutated_translation+=aa
-                        msa_variants[full_position].append(protein)
-                        msa_variants[full_position].append(indel_notation(region_translation,mutated_translation,len(deleted_nucs)%3!=0,"del"))
+                if pos+1 not in position_dict.keys():
+                    # print("Position at end of reference!")
+                    break
+                elif alt_pos == position_dict[pos+1]: #if we're still in the deletion, keep moving through
+                    continue
+                else: # we've reached the end of the deletion
+                    print("Saving deletion at pos ", pos)
+                    one_before_del = deletion_pos[0] - 1
+                    del_start = deletion_pos[0] + 1
+                    del_end = deletion_pos[-1] + 1
+                    print("Start: ", del_start, "End: ", del_end)
+                    deleted_nucs = anchor_seq[deletion_pos[0]:del_end]
+                    ref = anchor_seq[one_before_del:del_end]
+                    print("Ref: ", ref, "Alt: ", alt)
+                    alt = strain_seq[alt_pos[0]]
+                    mutated_region = get_mutated_region(protein,reference,del_start,ref,alt)
+                    mutated_translation = ""
+                    msa_variants[del_start] = ["DEL", ref, alt, "1.000000", original_aa, mutated_aa]
+                    for i in range(0,len(mutated_region),3):
+                        aa = genetic_code(mutated_region[i:i+3].upper())
+                        if i+3>len(mutated_region)-1 or aa == "*":
+                            break
+                        else:
+                            mutated_translation+=aa
+                    msa_variants[del_start].append(protein)
+                    msa_variants[del_start].append(indel_notation(region_translation,mutated_translation,len(deleted_nucs)%3!=0,"del"))
+                    deletion_pos = [] ## reset deletion pos
+                    break
             else:
                 print("SNP")
+                print("Anchor: ", anchor[pos], "Strain: ", strain[pos])
                 ref = anchor_seq[pos]
                 alt = strain_seq[alt_pos]
                 if ref == alt: # if there is no snp
@@ -409,7 +418,7 @@ for pos in position_dict.keys():
                             mutated_aa = genetic_code(mutated_codon.upper())
                             break
                             # print(c,mutated_region[i:i+3], region[i:i+3])
-                    msa_variants[full_position] = [str(alt_pos+1), ref, alt, "100%", "SNP", original_codon, mutated_codon]
+                    msa_variants[full_position] = ["SNP", ref, alt, "1.000000", original_codon, mutated_codon]
                     # add notation to VCF
                     if original_aa == mutated_aa:
                         msa_variants[full_position].append(protein)
@@ -427,8 +436,8 @@ print(position_dict)
 
 # variant_file = sys.argv[1].replace(".vcf","")
 with open(f"tester_variants.txt","w") as f:
-    f.write("\t".join(["Position","Calculated Position", "Reference allele","Alternate allele",
-        "Allele frequency","SNP Type","Original AA", "Mutated AA", "Protein","AA mutation"]))
+    f.write("\t".join(["Position","SNP Type", "Reference allele","Alternate allele",
+        "Allele frequency","Original AA", "Mutated AA", "Protein","AA mutation"]))
     f.write("\n")
     for k in msa_variants.keys():
         f.write(str(k)+"\t"+"\t".join(msa_variants[k])+"\n")
@@ -448,3 +457,36 @@ with open(f"tester_variants.txt","w") as f:
 # # for line in open(sys.argv[2]):
 # #     if '>' not in line:
 # #         reference += line.strip()
+
+
+###########
+"""
+test_d = {k: position_dict[k] for k in range(11284, 11300)}
+deletion_pos = []
+for k in test_d.keys():
+    alt_pos = test_d[k]
+    print("On position", k, "Actual position: ", k+1, alt_pos)
+    if type(test_d[k]) == list:
+        print("Deletion")
+        print("Anchor: ", anchor[k], "Strain: ", strain[k])
+        deletion_pos.append(k)
+        if k+1 not in test_d.keys():
+            print("At end of reference")
+        elif alt_pos == test_d[int(k)+1]:
+            continue
+        else:
+            print("Saving deletion at pos ", k)
+            one_before_del = deletion_pos[0] - 1
+            del_start = deletion_pos[0] + 1
+            del_end = deletion_pos[-1] + 1
+            print("Start: ", del_start, "End: ", del_end)
+            deleted_nucs = anchor_seq[deletion_pos[0]:del_end]
+            ref = anchor_seq[one_before_del:del_end]
+            alt = strain_seq[alt_pos[0]]
+            print("Ref: ", ref, "Alt: ", alt)
+            deletion_pos = []
+    else:
+            print("Anchor: ", anchor[k], "Strain: ", strain[k])
+    print()
+
+"""
