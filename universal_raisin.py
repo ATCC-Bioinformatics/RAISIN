@@ -94,161 +94,166 @@ if len(list(variants.keys())) == 0 and mode == "STANDARD":
     print("No Variants in VCF")
     quit()
 
+# convert vcf strain position to anchor positions
+if mode == "ANCHOR":
+    anchor, strain, sample_consensus = process_alignment(mafft)
+    anchor_strain_dict = anchor_genomes(anchor, strain)
+    anchor_consen_dict = anchor_genomes(anchor, sample_consensus)
+    anchor_variants = {}
+    strain_positions = list(variants.keys())
+    for i in range(0, len(strain_positions)):
+        vcf_pos = strain_positions[i]
+        print("Position: ", vcf_pos)
+        for anchor_pos, strain_pos in anchor_strain_dict.items():
+            if type(strain_pos) is not list: ## address non-indels first (positions of indels are in a list format)
+                if int(vcf_pos) == int(strain_pos):
+                    # print(vcf_pos, strain_pos)
+                    anchor_variants[str(anchor_pos)] = variants[vcf_pos]
+            if type(anchor_pos) == str and anchor_pos.count("-") == 1:
+                for nuc in strain_pos:
+                    if int(vcf_pos) == int(nuc):
+                        anchor_start = int(anchor_pos.split("-")[0])+1
+                        anchor_variants[str(anchor_start)] = variants[vcf_pos]
+    
+    variants = anchor_variants
 
 ##############################################################################*
 
 
 #***************************** Variant processing!
-if mode == "STANDARD":
-    # Go through variants
-    for position in variants.keys():
-        full_position = position
-        # "_" is present if there are multiple variants at a position
-        if "_" in position:
-            position = position[:position.index("_")]
-        # Find if variant is in CDS region
-        # if int(position) == 13386 and len([e for e in variants[position][1][1:] if e != 'C']) == 0:
-        #     variants[full_position].append("ORF1ab")
-        #     variants[full_position].append("-1 Ribosomal frameshift site")
-        if int(position) == -10:
-            print("This should never happen. It's just a chunk of code to keep things working, since the above was commented out.")
-        else:
-            for k in features.keys():
-                start = int(features[k]['start'])
-                end = int(features[k]['end'])
-                protein = k[:-1] # since we added the part number to the label earlier, remove it now so it can match correctly 
-                # print(start, end, k, protein)
-                # If it is, then we know the protein/gene and we need to determine the aa mutation(s)
-                if int(position) >= start and int(position) <= end:
-                    # To get the aa mutation(s) pull out the reference CDS and generate the consensus CDS
-                    region = features[k]['nt_seq']
-                    # if features[k]['strand'] == -1:
-                    #     region = ''.join([revcom[e] for e in nt_seq])
-                    # If the lengths of the ref and alt alleles are the same and == 1 then SNP
-                    if len(variants[position][0])==len(variants[position][1]) and len(variants[position][1]) == 1:
-                        # print(protein,reference,int(position),variants[position][0],variants[position][1])
-                        mutated_region = get_mutated_region(protein,reference,int(position),variants[position][0],variants[position][1],gbk_file)
-                        if mutated_region == region:
-                            print("mutated and region are same")
-                            variants[full_position].append('UTR')
-                            variants[full_position].append("n/a")
+#* STANDARD VCF Processing (Do this for ANCHOR as well)
+# Go through variants
+for position in variants.keys():
+    full_position = position
+    # "_" is present if there are multiple variants at a position
+    if "_" in position:
+        position = position[:position.index("_")]
+    # Find if variant is in CDS region
+    # if int(position) == 13386 and len([e for e in variants[position][1][1:] if e != 'C']) == 0:
+    #     variants[full_position].append("ORF1ab")
+    #     variants[full_position].append("-1 Ribosomal frameshift site")
+    if int(position) == -10:
+        print("This should never happen. It's just a chunk of code to keep things working, since the above was commented out.")
+    else:
+        for k in features.keys():
+            start = int(features[k]['start'])
+            end = int(features[k]['end'])
+            protein = k[:-1] # since we added the part number to the label earlier, remove it now so it can match correctly 
+            # print(start, end, k, protein)
+            # If it is, then we know the protein/gene and we need to determine the aa mutation(s)
+            if int(position) >= start and int(position) <= end:
+                # To get the aa mutation(s) pull out the reference CDS and generate the consensus CDS
+                region = features[k]['nt_seq']
+                # if features[k]['strand'] == -1:
+                #     region = ''.join([revcom[e] for e in nt_seq])
+                # If the lengths of the ref and alt alleles are the same and == 1 then SNP
+                if len(variants[position][0])==len(variants[position][1]) and len(variants[position][1]) == 1:
+                    # print(protein,reference,int(position),variants[position][0],variants[position][1])
+                    mutated_region = get_mutated_region(protein,reference,int(position),variants[position][0],variants[position][1],gbk_file)
+                    if mutated_region == region:
+                        print("mutated and region are same")
+                        variants[full_position].append('UTR')
+                        variants[full_position].append("n/a")
+                    else:
+                        # find the variant position relative to the region
+                        # region_variant_position = int(position) - 1 - start
+                        # if features[k]['strand'] == -1:
+                        #     region_variant_position = int(position) - 1 - end    
+                        # determine the codon number and codon position [0,1,2]
+                        # codon_number = region_variant_position//3
+                        # codon_position = region_variant_position - (codon_number*3) # 0, 1, or 2
+                        # pull out the original and mutated codon and translate
+                        # original_codon = region[(codon_number*3):(codon_number*3)+3]
+                        # mutated_codon = mutated_region[(codon_number*3):(codon_number*3)+3]
+                        # print(variants[position])
+                        codon_number = 0
+                        for i in range(0,len(mutated_region),3):
+                            codon_number+=1
+                            # print(i, i+3, mutated_region[i:i+3], region[i:i+3])
+                            if mutated_region[i:i+3] != region[i:i+3]:
+                                original_codon = region[i:i+3]
+                                mutated_codon = mutated_region[i:i+3]
+                                original_aa = genetic_code(original_codon.upper())
+                                mutated_aa = genetic_code(mutated_codon.upper())
+                                break
+                                # print(c,mutated_region[i:i+3], region[i:i+3])
+                        # add notation to VCF
+                        if original_aa == mutated_aa:
+                            variants[full_position].append(protein)
+                            variants[full_position].append("--")
                         else:
-                            # find the variant position relative to the region
-                            # region_variant_position = int(position) - 1 - start
-                            # if features[k]['strand'] == -1:
-                            #     region_variant_position = int(position) - 1 - end    
-                            # determine the codon number and codon position [0,1,2]
-                            # codon_number = region_variant_position//3
-                            # codon_position = region_variant_position - (codon_number*3) # 0, 1, or 2
-                            # pull out the original and mutated codon and translate
-                            # original_codon = region[(codon_number*3):(codon_number*3)+3]
-                            # mutated_codon = mutated_region[(codon_number*3):(codon_number*3)+3]
-                            # print(variants[position])
-                            codon_number = 0
-                            for i in range(0,len(mutated_region),3):
-                                codon_number+=1
-                                # print(i, i+3, mutated_region[i:i+3], region[i:i+3])
-                                if mutated_region[i:i+3] != region[i:i+3]:
-                                    original_codon = region[i:i+3]
-                                    mutated_codon = mutated_region[i:i+3]
-                                    original_aa = genetic_code(original_codon.upper())
-                                    mutated_aa = genetic_code(mutated_codon.upper())
-                                    break
-                                    # print(c,mutated_region[i:i+3], region[i:i+3])
-                            # add notation to VCF
-                            if original_aa == mutated_aa:
-                                variants[full_position].append(protein)
-                                variants[full_position].append("--")
-                            else:
-                                variants[full_position].append(protein)
-                                variants[full_position].append(original_aa+str(codon_number)+mutated_aa)
-                    # If ref allele length > alt allele length then DEL
-                    elif len(variants[position][0])>len(variants[position][1]):
-                        # do not include stop codon
-                        region_translation = features[k]['aa_seq']
-                        # mutate the reference to include the deletion
-                        deletion_length = len(variants[position][0])-len(variants[position][1])
-                        mutated_region = get_mutated_region(protein,reference,int(position),variants[position][0],variants[position][1],gbk_file)
-                        mutated_translation = ""
-                        for i in range(0,len(mutated_region),3):
-                            aa = genetic_code(mutated_region[i:i+3].upper())
-                            if i+3>len(mutated_region)-1 or aa == "*":
-                                break
-                            else:
-                                mutated_translation+=aa
-                        variants[full_position].append(protein)
-                        variants[full_position].append(indel_notation(region_translation,mutated_translation,deletion_length%3!=0,"del"))
-                    # If ref allele length > alt allele length then INS
-                    elif len(variants[position][0])<len(variants[position][1]):
-                        # do not include stop codon
-                        region_translation = features[k]['aa_seq']
-                        # mutate the reference to include the insertion
-                        insertion_nucleotides = variants[position][1]
-                        mutated_region = get_mutated_region(protein,reference,int(position),variants[position][0],variants[position][1],gbk_file)
-                        mutated_translation = ""
-                        for i in range(0,len(mutated_region),3):
-                            aa = genetic_code(mutated_region[i:i+3].upper())
-                            if i+3>len(mutated_region)-1 or aa == "*":
-                                break
-                            else:
-                                mutated_translation+=aa
-                        variants[full_position].append(protein)
-                        variants[full_position].append(indel_notation(region_translation,mutated_translation,len(insertion_nucleotides)%3!=0,"ins"))
-                    break
-        if len(variants[full_position])<5:
-            variants[full_position].append("UTR")
-            variants[full_position].append("n/a")
+                            variants[full_position].append(protein)
+                            variants[full_position].append(original_aa+str(codon_number)+mutated_aa)
+                # If ref allele length > alt allele length then DEL
+                elif len(variants[position][0])>len(variants[position][1]):
+                    # do not include stop codon
+                    region_translation = features[k]['aa_seq']
+                    # mutate the reference to include the deletion
+                    deletion_length = len(variants[position][0])-len(variants[position][1])
+                    mutated_region = get_mutated_region(protein,reference,int(position),variants[position][0],variants[position][1],gbk_file)
+                    mutated_translation = ""
+                    for i in range(0,len(mutated_region),3):
+                        aa = genetic_code(mutated_region[i:i+3].upper())
+                        if i+3>len(mutated_region)-1 or aa == "*":
+                            break
+                        else:
+                            mutated_translation+=aa
+                    variants[full_position].append(protein)
+                    variants[full_position].append(indel_notation(region_translation,mutated_translation,deletion_length%3!=0,"del"))
+                # If ref allele length > alt allele length then INS
+                elif len(variants[position][0])<len(variants[position][1]):
+                    # do not include stop codon
+                    region_translation = features[k]['aa_seq']
+                    # mutate the reference to include the insertion
+                    insertion_nucleotides = variants[position][1]
+                    mutated_region = get_mutated_region(protein,reference,int(position),variants[position][0],variants[position][1],gbk_file)
+                    mutated_translation = ""
+                    for i in range(0,len(mutated_region),3):
+                        aa = genetic_code(mutated_region[i:i+3].upper())
+                        if i+3>len(mutated_region)-1 or aa == "*":
+                            break
+                        else:
+                            mutated_translation+=aa
+                    variants[full_position].append(protein)
+                    variants[full_position].append(indel_notation(region_translation,mutated_translation,len(insertion_nucleotides)%3!=0,"ins"))
+                break
+    if len(variants[full_position])<5:
+        variants[full_position].append("UTR")
+        variants[full_position].append("n/a")
 
-    ######## Write to variants.txt ##########
-    with open(f"{output_dir}/{output_name}_variants.txt","w") as f:
-        f.write("\t".join(["Position","Reference allele","Alternate allele","Allele frequency","Protein","AA mutation"]))
-        f.write("\n")
-        for k in variants.keys():
-            f.write(k+"\t"+"\t".join(variants[k])+"\n")
+######## Write to variants.txt ##########
+with open(f"{output_dir}/{output_name}_variants.txt","w") as f:
+    f.write("\t".join(["Position","Reference allele","Alternate allele","Allele frequency","Protein","AA mutation"]))
+    f.write("\n")
+    for k in variants.keys():
+        f.write(k+"\t"+"\t".join(variants[k])+"\n")
 
 
-    ######## Write to low_coverage.txt ##########
-    with open(f"{output_dir}/{output_name}_lowcoverage.txt","w") as f:
-        f.write("\t".join(["Chromosome","Start_0index","End_1index","Average_coverage","Protein"]))
-        f.write("\n")
-        bed_path = sys.argv[1].split("/")
-        bed_path = "/".join(bed_path[:-1])+"/low-coverage-regions.bed"
-        for line in open(bed_path,"r"):
-            start = line.split("\t")[1]
-            end = line.split("\t")[2]
-            region = []
-            for k in features.keys():
-                fstart = int(features[k]['start'])
-                fend = int(features[k]['end'])
-                protein = k[:-1]
-                # If it is, then we know the protein/gene and we need to determine the aa mutation(s)
-                if (int(start) >= fstart and int(start) <= fend) or (int(end) >= fstart and int(end) <= fend):
-                    region.append(protein)
-                    
-            if len(region) > 0:
-                f.write(line.strip()+f"\t{';'.join(region)}\n")
-            else:
-                f.write(line.strip()+"\tUTR\n")
+######## Write to low_coverage.txt ##########
+with open(f"{output_dir}/{output_name}_lowcoverage.txt","w") as f:
+    f.write("\t".join(["Chromosome","Start_0index","End_1index","Average_coverage","Protein"]))
+    f.write("\n")
+    bed_path = sys.argv[1].split("/")
+    bed_path = "/".join(bed_path[:-1])+"/low-coverage-regions.bed"
+    for line in open(bed_path,"r"):
+        start = line.split("\t")[1]
+        end = line.split("\t")[2]
+        region = []
+        for k in features.keys():
+            fstart = int(features[k]['start'])
+            fend = int(features[k]['end'])
+            protein = k[:-1]
+            # If it is, then we know the protein/gene and we need to determine the aa mutation(s)
+            if (int(start) >= fstart and int(start) <= fend) or (int(end) >= fstart and int(end) <= fend):
+                region.append(protein)
+                
+        if len(region) > 0:
+            f.write(line.strip()+f"\t{';'.join(region)}\n")
+        else:
+            f.write(line.strip()+"\tUTR\n")
 
-elif mode == "ANCHOR":
-    anchor, strain, sample_consensus = process_alignment(mafft)
-    anchor_strain_dict = anchor_genomes(anchor, strain)
-    anchor_consen_dict = anchor_genomes(anchor, sample_consensus)
-
-    vcf_positions = list(variants.keys())
-    final_variants = variants
-    for i in range(len(vcf_positions)):
-        vcf_pos = vcf_positions[i]
-        for anchor_pos, strain_pos in anchor_strain_dict.items():
-            if type(strain_pos) is not list: ## address non-indels first (positions of indels are in a list format)
-                if int(vcf_pos) == int(strain_pos):
-                    print(vcf_pos, strain_pos, anchor_pos)
-                    final_variants[vcf_pos].append(anchor_pos)
-            if type(anchor_pos) == str and anchor_pos.count("-") == 1:
-                for nuc in strain_pos:
-                    if int(vcf_pos) == int(nuc):
-                        anchor_start = int(anchor_pos.split("-")[0])+1
-                        final_variants[vcf_pos].append(anchor_pos)
+## Find MSA variants
+if mode == "ANCHOR":
 
     # Removing the dashes allows us to parse through the unaligned sequences    
     anchor_seq=anchor.replace("-", "")
@@ -368,13 +373,23 @@ elif mode == "ANCHOR":
             #     print(pos, protein, "start: ", int(features[k]['start']), "end: ", int(features[k]['end']))
             # break
 
-    #! Merge with vcf to get frequency information
-
+    #! Merge with vcf to get frequency information for type II variants
+    # temp_msa = {k:msa_variants[k] for k in msa_variants.keys()}
+    for anchor_pos in msa_variants.keys():
+        for anchor_var in variants.keys():
+            if int(anchor_pos) == int(anchor_var):
+                # print("Anchor pos: ", anchor_var, msa_variants[anchor_pos])
+                frequency = variants[anchor_var][2]
+                cons_allele = variants[anchor_var][1]
+                msa_variants[anchor_pos][5] = frequency
+                msa_variants[anchor_pos][4] = cons_allele
+    
     with open(f"{output_dir}/{output_name}_anchored_variants.txt","w") as f:
         f.write("\t".join(["Anchor Position","Variant", "Variant Type", "Anchor Allele","Strain Allele", "Sample Allele",
             "Allele Frequency", "Protein","AA mutation"]))
         f.write("\n")
         for k in msa_variants.keys():
             f.write(str(k)+"\t"+"\t".join(msa_variants[k])+"\n")
+    
 
 print("Completed") 
