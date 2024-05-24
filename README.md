@@ -1,12 +1,20 @@
 
+```
 .___      .    _   _____ _ __    _
 /   \    /|    |  (      | |\   | 
 |__-'   /  \   |   `--.  | | \  | 
 |  \   /---'\  |      |  | |  \ | 
 /   \,'      \ / \___.'  / |   \| 
-
+```
 # Introduction 
-ATCC presents RAISIN (Retrieving Amino acid Implications from Sequencing IteratioNs), a simple, fast, and accurate variant annotation pipeline built for characterizing and notating variants given a pair of Illumina sequencing FASTQs and an NCBI reference accession number
+ATCC presents RAISIN (Retrieving Amino acid Implications from Sequencing IteratioNs), a simple, fast, and accurate variant annotation pipeline built for characterizing and notating variants.
+
+RAISIN has three modes: STANDARD, ANCHOR, and COMPARE, each of which allow users to get a different glimpse of the variants for a sample.
+
+
+In STANDARD mode, users can either use Illumina sequencing FASTQs or a VCF as the main input. If given the reads, STANDARD RAISIN will map the reads to a user-given reference, call variants, and then call consensus. The generated VCF is then analyzed against the user-given annotation file to better characterize each variant.  
+
+ given a pair of Illumina sequencing FASTQs and an NCBI reference accession number
 
 # Getting Started
 TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:
@@ -27,7 +35,7 @@ Usage:
 STANDARD mode:
     # Example 1: bash run_raisin.sh -m STANDARD -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results 
                     -f sample1 -n MN02121.1 -e username@gmail.com -d
-    # Example 2: bash run_raisin.sh -m STANDARD -s VCF sample1.vcf -o sample1_results 
+    # Example 2: bash run_raisin.sh -m STANDARD -s VCF -v sample1.vcf -o sample1_results 
                     -f sample1 -r MN02121.1.fasta -g MN02121.1.gbk
     -m STANDARD,
     ****** Inputs ******
@@ -52,8 +60,7 @@ STANDARD mode:
 ANCHOR mode:
     # Example 1: bash run_raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor
                         -n MN02121.1 -b MZ45991.1 -e username@gmail.com -d
-    # Example 2: bash run_raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor
-                        -r MN02121.1.fasta -g MN02121.1.gbk -a MZ45991.1.fasta -k MZ45991.1.gbk
+    # Example 2: bash run_raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor -r MN02121.1.fasta -a MZ45991.1.fasta -k MZ45991.1.gbk
     -m ANCHOR,
     ****** Inputs ******
         -s SEQ (to indicate using sequencing reads),
@@ -63,7 +70,6 @@ ANCHOR mode:
     ****** For References ******
     Option 1:
         -r for path to strain reference,
-        -g for path to strain GBK,
         -a for path to anchor reference,
         -k for path to anchor GBK,
     Option 2:

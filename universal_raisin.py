@@ -288,7 +288,7 @@ if mode == "ANCHOR":
                     cons = consen_seq[one_before_ins:ins_end]
                     insertion_nucleotides = strain_seq[alt_pos[0]:ins_end]
                     variant_type = determine_variant_type(ref, alt, cons)
-                    msa_variants[ref_start+1] = ["INS", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000"]
+                    msa_variants[ref_start+1] = ["INS", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", original_codon, mutated_codon]
                     mutated_region = get_mutated_region(protein,reference,ref_start,ref,alt,gbk_file)
                     mutated_translation = ""
                     for i in range(0,len(mutated_region),3):
@@ -324,7 +324,7 @@ if mode == "ANCHOR":
                         variant_type = determine_variant_type(ref, alt, cons)
                         mutated_region = get_mutated_region(protein,reference,del_start,ref,alt,gbk_file)
                         mutated_translation = ""
-                        msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000"]
+                        msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", original_codon, mutated_codon]
                         for i in range(0,len(mutated_region),3):
                             aa = genetic_code(mutated_region[i:i+3].upper())
                             if i+3>len(mutated_region)-1 or aa == "*":
@@ -338,6 +338,7 @@ if mode == "ANCHOR":
                 else:
                     ref = anchor_seq[pos]
                     alt = strain_seq[alt_pos]
+                    print("Anchor pos: ", pos, "Alt pos: ", alt_pos, "Consen pos: ", cons_pos)
                     cons = consen_seq[cons_pos]
                     full_position = pos + 1  # actual position of SNP (1-based)
                     if ref == alt == cons: # if there is no snp
@@ -360,7 +361,7 @@ if mode == "ANCHOR":
                                 mutated_aa = genetic_code(mutated_codon.upper())
                                 break
                                 # print(c,mutated_region[i:i+3], region[i:i+3])
-                        msa_variants[full_position] = ["SNP", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000"]
+                        msa_variants[full_position] = ["SNP", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", original_codon, mutated_codon]
                         # add notation to VCF
                         if original_aa == mutated_aa:
                             msa_variants[full_position].append(protein)
@@ -386,7 +387,7 @@ if mode == "ANCHOR":
     
     with open(f"{output_dir}/{output_name}_anchored_variants.txt","w") as f:
         f.write("\t".join(["Anchor Position","Variant", "Variant Type", "Anchor Allele","Strain Allele", "Sample Allele",
-            "Allele Frequency", "Protein","AA mutation"]))
+            "Allele Frequency", "Original Codon", "Mutated Codon", "Protein","AA mutation"]))
         f.write("\n")
         for k in msa_variants.keys():
             f.write(str(k)+"\t"+"\t".join(msa_variants[k])+"\n")

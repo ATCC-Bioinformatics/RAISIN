@@ -148,6 +148,20 @@ def get_mutated_region(region,reference,position,ref,alt):
                     break
     return nt_seq
 
+
+def determine_variant_type(ref, alt, cons):
+    if ref != alt != cons:
+        var_type = "IV"
+    elif ref == alt != cons:
+        var_type = "II"
+    elif ref == cons != alt:
+        var_type = "III"
+    elif ref != alt == cons:
+        var_type = "I"
+    return var_type
+
+
+
 def process_alignment(msa_path):
     alignments = {}
     c = 0
@@ -179,33 +193,16 @@ for line in open(vcf):
         else:
             num_alts = 1
             variants[pos] = [ref,alt,af]
-"""
-anchor_sequence = "ATATGTATATTTAT---A"
-#                  01234567890123---4
-strain_sequence = "----GTATA---ATGGGA"
-#                  ----01234---567890
-consen_sequence = "----GTTTA---ATGGTA"
 
-
-anchor_sequence = "ATATGTATATTTAT---A"
-#                  01234567890123---4
-strain_sequence = "----GTATA---ATGGGA"
-#                  01234567890123
-consen_sequence = "----GTTTA---ATGGTA"
-
-
-"""
-def anchor_genomes(anchor_sequence, strain_sequence, consen_sequence):
+def anchor_genomes(anchor_sequence, sequence):
     apos = 0        # anchor position
     spos = 0        # strain position
-    cpos = 0        # consensus position
     position_dict = {}
     spos_list = []
     for i in range(len(anchor_sequence)):
         # NTs
         a_nuc = anchor_sequence[i]
-        s_nuc = strain_sequence[i]
-        c_nuc = consen_sequence[i]
+        s_nuc = sequence[i]
         # this block specifically deals with insertions in strain/deletion in reference
         if a_nuc == "-":
             spos_list.append(spos) # if a_nuc is a dash, add the position of the inserted nucleotide in strain
@@ -233,23 +230,27 @@ def anchor_genomes(anchor_sequence, strain_sequence, consen_sequence):
             apos+=1
         if s_nuc != '-':
             spos+=1
-        if c_nuc != '-':
-            cpos+=1
     return position_dict
 
 ## if the vcf position
 # {0: [-1], 1: [-1], 2: [-1], 3: [-1], 4: 0, 5: 1, 6: 2, 7: 3, 8: 4, 9: [4], 10: [4], 11: [4], 12: 5, 13: 6, '13-14': [7, 8, 9], 14: 10}
-position_dict = anchor_genomes(anchor, strain, sample_consensus)
-vcf_positions = list(variants.keys())
-# variants2 = variants
-# for i in range(len(vcf_positions)):
-#     vcf_pos = vcf_positions[i]
-#     for anchor_pos, strain_pos in positions.items():
-#         if type(strain_pos) is not list: ## address non-indels first (positions of indels are in a list format)
-#             if int(vcf_pos) == int(strain_pos):
-#                 print(vcf_pos, strain_pos, anchor_pos)
-#                 variants2[vcf_pos].append(anchor_pos)
+anchor_strain_dict = anchor_genomes(anchor, strain)
+anchor_consen_dict = anchor_genomes(anchor, sample_consensus)
 
+vcf_positions = list(variants.keys())
+final_variants = {k:variants[k] for k in variants.keys()}
+for i in range(len(vcf_positions)):
+    vcf_pos = vcf_positions[i]
+    for anchor_pos, strain_pos in anchor_strain_dict.items():
+        if type(strain_pos) is not list: ## address non-indels first (positions of indels are in a list format)
+            if int(vcf_pos) == int(strain_pos):
+                print(vcf_pos, strain_pos, anchor_pos)
+                final_variants[vcf_pos].append(anchor_pos)
+        if type(anchor_pos) == str and anchor_pos.count("-") == 1:
+            for nuc in strain_pos:
+                if int(vcf_pos) == int(nuc):
+                    anchor_start = int(anchor_pos.split("-")[0])+1
+                    final_variants[vcf_pos].append(anchor_pos)
 
 reference = ""
 graphic_features = []
@@ -310,26 +311,25 @@ for r in SeqIO.parse(open(gbk), "genbank"):
 
 anchor_seq=anchor.replace("-", "")
 strain_seq=strain.replace("-", "")
+consen_seq=sample_consensus.replace("-", "")
 
+##! TO DO: incorporate UTR variants found when doing an MSA
 # Grab the start position of where the first protein starts (to know where 5'UTR ends)
 first_start = min([int(features[k]['start']) for k in features.keys()])
 # Grab the end position of where the last protein ends (to know where 3'UTR begins)
 last_end = max([int(features[k]['end']) for k in features.keys()])
-##! SNPs seem to stop at 13468
+
 deletion_pos = []
 msa_variants = {}
-for pos in position_dict.keys():
-    # print(pos)
+for pos in anchor_strain_dict.keys():
     for k in features.keys(): #where features is a parsed gbk)
-        # print("Entered gbk loop ", k)
-        start = int(features[k]['start'])
-        end = int(features[k]['end'])
-        alt_pos = position_dict[pos]
+        prot_start = int(features[k]['start'])
+        prot_end = int(features[k]['end'])
+        alt_pos = anchor_strain_dict[pos]
+        cons_pos = anchor_consen_dict[pos]
         region = features[k]['nt_seq']
         region_translation = features[k]['aa_seq']
         protein = k[:-1]
-        full_position = pos + 1  # Adding 1 as pos is 0 based
-        # print(pos, type(pos))
         ##* INSERTION!! # insertions are represented like this in the dict: {4-5: [1, 2, 3, 4]}, we want to change it to strain_seq[1:5]
         if type(pos) == str and "-" in pos: # if position is a string, i.e. "-", then we're in an insertion, i.e. "3-4" or "-1-0"
             print("Insertion")
@@ -337,15 +337,17 @@ for pos in position_dict.keys():
                 print("WARNING: The reference genome hasn't started yet. Looks like the strain reference might be longer than the anchor reference.")
                 break
             else:
-                ref_start = pos.split("-")[0]
+                ref_start = int(pos.split("-")[0])
                 ref = anchor_seq[ref_start]
-            if ref_start > features[k]['start'] and ref_start < features[k]['end']: # check region based on ref position
-                one_before_ins = alt_pos[0] - 1 # we want to grab the nucleotide right before the insertion, so we substract 1
-                ins_start = alt_pos[0] + 1 # adding 1 because python is 0-index
-                ins_end = alt_pos[-1] + 1 # we add 1 because this will include the last position
+            if ref_start > prot_start and ref_start < prot_end: # check region based on ref position
+                one_before_ins = alt_pos[0] - 1 # nucleotide right before start of insertion
+                ins_start = alt_pos[0] + 1 # actual position of insertion start (1-based)
+                ins_end = alt_pos[-1] + 1 # actual position of insertion end (1-based)
                 alt = strain_seq[one_before_ins:ins_end]
+                cons = consen_seq[one_before_ins:ins_end]
                 insertion_nucleotides = strain_seq[alt_pos[0]:ins_end]
-                msa_variants[ins_start] = ["INS", ref, alt, "1.000000", original_aa, mutated_aa]
+                variant_type = determine_variant_type(ref, alt, cons)
+                msa_variants[ref_start+1] = ["INS", variant_type, ref, alt, cons, "1.000000"]
                 mutated_region = get_mutated_region(protein,reference,ref_start,ref,alt)
                 mutated_translation = ""
                 for i in range(0,len(mutated_region),3):
@@ -354,35 +356,34 @@ for pos in position_dict.keys():
                         break
                     else:
                         mutated_translation+=aa
-                msa_variants[ins_start].append(protein)
-                msa_variants[ins_start].append(indel_notation(region_translation,mutated_translation,len(insertion_nucleotides)%3!=0,"ins"))
+                msa_variants[ref_start+1].append(protein)
+                msa_variants[ref_start+1].append(indel_notation(region_translation,mutated_translation,len(insertion_nucleotides)%3!=0,"ins"))
         elif alt_pos == [-1]:
             print("Strain reference hasn't started, skipping")
             break
-        elif pos > int(features[k]['start']) and pos < int(features[k]['end']):
+        elif pos > prot_start and pos < prot_end:
             ## * DELETION!! # {8:4, 9: [4], 10: [4], 11: [4], 12:5}
             if type(alt_pos) == list:
                 print("Deletion")
                 # Grab all the positions of the deletion
                 deletion_pos.append(pos)
-                if pos+1 not in position_dict.keys():
+                if pos+1 not in anchor_strain_dict.keys():
                     # print("Position at end of reference!")
                     break
-                elif alt_pos == position_dict[pos+1]: #if we're still in the deletion, keep moving through
+                elif alt_pos == anchor_strain_dict[pos+1]: #if we're still in the deletion, keep moving through
                     continue
                 else: # we've reached the end of the deletion
-                    print("Saving deletion at pos ", pos)
-                    one_before_del = deletion_pos[0] - 1
-                    del_start = deletion_pos[0] + 1
-                    del_end = deletion_pos[-1] + 1
-                    print("Start: ", del_start, "End: ", del_end)
+                    one_before_del = deletion_pos[0] - 1 # nucleotide right before start of deletion
+                    del_start = deletion_pos[0] + 1 # actual position of deletion start (1-based)
+                    del_end = deletion_pos[-1] + 1 # actual position of deletion end (1-based)
                     deleted_nucs = anchor_seq[deletion_pos[0]:del_end]
                     ref = anchor_seq[one_before_del:del_end]
-                    print("Ref: ", ref, "Alt: ", alt)
                     alt = strain_seq[alt_pos[0]]
+                    cons = strain_seq[cons_pos[0]]
+                    variant_type = determine_variant_type(ref, alt, cons)
                     mutated_region = get_mutated_region(protein,reference,del_start,ref,alt)
                     mutated_translation = ""
-                    msa_variants[del_start] = ["DEL", ref, alt, "1.000000", original_aa, mutated_aa]
+                    msa_variants[del_start] = ["DEL", variant_type, ref, alt, cons, "1.000000"]
                     for i in range(0,len(mutated_region),3):
                         aa = genetic_code(mutated_region[i:i+3].upper())
                         if i+3>len(mutated_region)-1 or aa == "*":
@@ -394,20 +395,20 @@ for pos in position_dict.keys():
                     deletion_pos = [] ## reset deletion pos
                     break
             else:
-                print("SNP")
-                print("Anchor: ", anchor[pos], "Strain: ", strain[pos])
                 ref = anchor_seq[pos]
                 alt = strain_seq[alt_pos]
-                if ref == alt: # if there is no snp
+                cons = consen_seq[cons_pos]
+                full_position = pos + 1  # actual position of SNP (1-based)
+                if ref == alt == cons: # if there is no snp
                     break
                 if alt.lower() == "n":
                     break
-                mutated_region = get_mutated_region(protein,reference,pos+1,ref,alt)
-                if mutated_region == region:
-                    print("mutated and region are same")
-                    # msa_variants[full_position].append('UTR')
-                    # msa_variants[full_position].append("n/a")
+                variant_type = determine_variant_type(ref, alt, cons)
+                if variant_type == "II": # if consensus is the nucleotide of difference
+                    mutated_region = get_mutated_region(protein,reference,pos+1,ref,cons)
                 else:
+                    mutated_region = get_mutated_region(protein,reference,pos+1,ref,alt)
+                if mutated_region != region:
                     codon_number = 0
                     for i in range(0,len(mutated_region),3):
                         codon_number+=1
@@ -418,7 +419,7 @@ for pos in position_dict.keys():
                             mutated_aa = genetic_code(mutated_codon.upper())
                             break
                             # print(c,mutated_region[i:i+3], region[i:i+3])
-                    msa_variants[full_position] = ["SNP", ref, alt, "1.000000", original_codon, mutated_codon]
+                    msa_variants[full_position] = ["SNP", variant_type, ref, alt, cons, "1.000000"]
                     # add notation to VCF
                     if original_aa == mutated_aa:
                         msa_variants[full_position].append(protein)
@@ -431,13 +432,31 @@ for pos in position_dict.keys():
         #     print(pos, protein, "start: ", int(features[k]['start']), "end: ", int(features[k]['end']))
         # break
 
-# print(msa_variants)
-print(position_dict)
+#! Merge with vcf to get frequency information
+tv = {k:msa_variants[k] for k in msa_variants.keys()}
+for anchor_pos in tv.keys():
+    for var in final_variants.keys():
+        anchor_var = final_variants[var][-1]
+        if anchor_pos == anchor_var:
+            print("Anchor pos: ", anchor_var, tv[anchor_pos])
+            frequency = final_variants[var][2]
+            cons_allele = final_variants[var][1]
+            tv[anchor_pos][5] = frequency
+            tv[anchor_pos][4] = cons_allele
 
-# variant_file = sys.argv[1].replace(".vcf","")
+
+with open(f"tv_tester_variants.txt","w") as f:
+    f.write("\t".join(["Anchor Position","Variant", "Variant Type", "Anchor Allele","Strain Allele", "Sample Allele",
+        "Allele Frequency", "Protein","AA mutation"]))
+    f.write("\n")
+    for k in tv.keys():
+        f.write(str(k)+"\t"+"\t".join(tv[k])+"\n")
+
+
+
 with open(f"tester_variants.txt","w") as f:
-    f.write("\t".join(["Position","SNP Type", "Reference allele","Alternate allele",
-        "Allele frequency","Original AA", "Mutated AA", "Protein","AA mutation"]))
+    f.write("\t".join(["Anchor Position","Variant", "Variant Type", "Anchor Allele","Strain Allele", "Sample Allele",
+        "Allele Frequency", "Protein","AA mutation"]))
     f.write("\n")
     for k in msa_variants.keys():
         f.write(str(k)+"\t"+"\t".join(msa_variants[k])+"\n")
@@ -447,21 +466,10 @@ with open(f"tester_variants.txt","w") as f:
 #     ###! Type III indel - all nucs in anchor and consensus match, diff to strain
 #     ###! Type IV indel - strain, consensus, and anchor differ
 
-#     ## columns: pos variant anchor-strain anchor-consensus
-#     ###         13-14 indelnot aanot1 aanot2
-#     ### * translate the pos in the vcf to anchor pos and see if variants are in any of the indels
-#     # {0: [-1], 1: [-1], 2: [-1], 3: [-1], 4: 0, 5: 1, 6: 2, 7: 3, 8: 4, 9: [4], 10: [4], 11: [4], 12: 5, 13: 6, '13-14': [7, 8, 9], 14: 10}
-#     # elif a_nuc == "-":
-
-#         # {'13-14': ['Type III', '---', 'GGG', 'GGT']} T, TGGG, TGGT
-# # for line in open(sys.argv[2]):
-# #     if '>' not in line:
-# #         reference += line.strip()
-
 
 ###########
 """
-test_d = {k: position_dict[k] for k in range(11284, 11300)}
+test_d = {k: anchor_strain_dict[k] for k in range(11284, 11300)}
 deletion_pos = []
 for k in test_d.keys():
     alt_pos = test_d[k]

@@ -20,7 +20,7 @@ EOF
     STANDARD mode:
       # Example 1: bash run_raisin.sh -m STANDARD -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results 
                       -f sample1 -n MN02121.1 -e username@gmail.com -d
-      # Example 2: bash run_raisin.sh -m STANDARD -s VCF sample1.vcf -o sample1_results 
+      # Example 2: bash run_raisin.sh -m STANDARD -s VCF -v sample1.vcf -o sample1_results 
                       -f sample1 -r MN02121.1.fasta -g MN02121.1.gbk
       -m STANDARD,
       ****** Inputs ******
@@ -46,7 +46,7 @@ EOF
       # Example 1: bash run_raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor
                           -n MN02121.1 -b MZ45991.1 -e username@gmail.com -d
       # Example 2: bash run_raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor
-                          -r MN02121.1.fasta -g MN02121.1.gbk -a MZ45991.1.fasta -k MZ45991.1.gbk
+                          -r MN02121.1.fasta -a MZ45991.1.fasta -k MZ45991.1.gbk
       -m ANCHOR,
       ****** Inputs ******
           -s SEQ (to indicate using sequencing reads),
@@ -56,7 +56,6 @@ EOF
       ****** For References ******
         Option 1:
           -r for path to strain reference,
-          -g for path to strain GBK,
           -a for path to anchor reference,
           -k for path to anchor GBK,
         Option 2:
@@ -209,9 +208,14 @@ then
       exit
     fi
   else ## if download mode was not selected
-    if [ -z $REF ] && [ -z $GBK ]
+    if [ -z $REF ] && [ -z $GBK ] && [ $MODE == "STANDARD" ]
     then
-      echo "Since download flag was NOT chosen, a path to the reference fasta file (-r) and GBK (-g) must be provided."
+      echo "Since download flag was NOT chosen, a path to the reference fasta file (-r) and GBK (-g) must be provided for STANDARD mode."
+      exit
+    fi
+    if [ -z $REF ] && [ $MODE == "ANCHOR" ]
+    then
+      echo "Since download flag was NOT chosen, a path to the reference fasta file (-r) must be provided for ANCHOR mode."
       exit
     fi
     if [ -z $ANCHOR_REF ] && [ -z $ANCHOR_GBK ] && [ $MODE == "ANCHOR" ]
@@ -238,7 +242,7 @@ fi
 output_path="$WORKING_DIR"
 log_path="$WORKING_DIR"/"$OUTPUT_NAME".log
 outdir=$WORKING_DIR/raisin_results_"$MODE"
-source raisin_functions.sh
+source $(dirname $0)/raisin_functions.sh
 
 if [ ! -d "$output_path" ]
 then
@@ -298,25 +302,6 @@ else
 fi
 echo "--------------------------------------------------------------------------------------------------------------------------------------------------------------------" | tee -a "$log_path" >&2
 
-logger(){
-    #written for general cleanliness in other functions
-    phrase=$1
-    action_status=$2
-    echo "--------------------------------------------------------------------------------------------------------------------------------------------------------------------" >&2
-    if [ $action_status = "Success" ]; then
-        echo "$(date) $phrase was successful!"| tee -a "$log_path" >&2
-    elif [ $action_status == "Start" ]; then
-        echo "$(date) Starting $phrase "| tee -a "$log_path" >&2
-    elif [ $action_status == "Done" ]; then
-        echo "$(date) Y'all've already done this. Passing $phrase"| tee -a "$log_path" >&2
-    elif [ $action_status == "Fail" ]; then
-        echo "$(date) $phrase failed."| tee -a "$log_path" >&2
-    else
-        echo "$(date) You forgot a status - this message should never be seen"| tee -a "$log_path" >&2
-    fi
-    echo "--------------------------------------------------------------------------------------------------------------------------------------------------------------------" >&2
-}
-export -f logger
 
 #### ! Reference Download ####################################
 # Set output name of fasta and gbk based on user inputs
@@ -331,7 +316,7 @@ then
     logger "reference and GBK file download from NCBI using $download_name" "Start" | tee -a "$log_path" >&2
     if [ ! -z $ACCESSION ] # if user requesed download via accession
     then
-      python /home/shared/repos/RAISIN_develop/get_accs.py $ACCESSION $EMAIL $output_path $log_path
+      python $(dirname $0)/get_accs.py $ACCESSION $EMAIL $output_path $log_path
     fi
 
     if [ ! -f $REF ] && [ ! -f $GBK ]
@@ -342,7 +327,7 @@ then
       logger "reference and GBK file download from NCBI using $download_name" "Success" | tee -a "$log_path" >&2
     fi
   else
-    logger "reference and GBK file download from NCBI using $download_name" "DONE" | tee -a "$log_path" >&2
+    logger "reference and GBK file download from NCBI using $download_name" "Done" | tee -a "$log_path" >&2
   fi
 fi
 # #### ! Reference Download DONE ####################################
@@ -364,9 +349,9 @@ elif [ $MODE == "ANCHOR" ]
 then
   if [ $INPUT == "SEQ" ]
   then
-    file_check=($FWD $REV $REF $GBK $ANCHOR_REF $ANCHOR_GBK)
+    file_check=($FWD $REV $REF $ANCHOR_REF $ANCHOR_GBK)
   else
-    file_check=($VCF $REF $GBK $ANCHOR_REF $ANCHOR_GBK)
+    file_check=($VCF $REF $ANCHOR_REF $ANCHOR_GBK)
   fi
 fi
 
@@ -384,7 +369,7 @@ done
 echo "$(date) Running in $MODE mode..." | tee -a "$log_path" >&2
 if [ $MODE == "COMPARE" ]
 then
-  python combine_variant_txt.py $VARIANTS_PATH $VARIANTS_PATH_2 $SAMPLE_NAME_1 $SAMPLE_NAME_2 $outdir
+  python $(dirname $0)/combine_variant_txt.py $VARIANTS_PATH $VARIANTS_PATH_2 $SAMPLE_NAME_1 $SAMPLE_NAME_2 $outdir
 else
   if [ $INPUT == "SEQ" ]
   then
@@ -403,13 +388,13 @@ else
     if [ $MODE == "ANCHOR" ] #! Does ANCHOR only work with reads?? (Yes!)
     then
       reads_to_reference_consensus=$outdir/"$OUTPUT_NAME"_"reads_to_reference"_"$ref_id"_consensus.fasta
-      cat $ANCHOR_REF >> $outdir/"$OUTPUT_NAME"_mafft_input.fasta
-      cat $REF > $outdir/"$OUTPUT_NAME"_mafft_input.fasta
+      cat $ANCHOR_REF > $outdir/"$OUTPUT_NAME"_mafft_input.fasta
+      cat $REF >> $outdir/"$OUTPUT_NAME"_mafft_input.fasta
       cat $reads_to_reference_consensus >> $outdir/"$OUTPUT_NAME"_mafft_input.fasta
       mafft $outdir/"$OUTPUT_NAME"_mafft_input.fasta > $outdir/"$OUTPUT_NAME"_mafft_alignment.fasta
       
       mafft_file=$outdir/"$OUTPUT_NAME"_mafft_alignment.fasta
-      python universal_raisin.py \
+      python $(dirname $0)/universal_raisin.py \
         $vcf_path \
         $ANCHOR_GBK \
         $MODE \
@@ -419,7 +404,7 @@ else
     
     elif [ $MODE == "STANDARD" ]
     then
-      python universal_raisin.py \
+      python $(dirname $0)/universal_raisin.py \
         $vcf_path \
         $GBK \
         $MODE \
@@ -429,8 +414,8 @@ else
   
   elif [ $INPUT == "VCF" ] && [ $MODE == "STANDARD" ]
   then
-    python universal_raisin.py \
-        $vcf_path \
+    python $(dirname $0)/universal_raisin.py \
+        $VCF \
         $GBK \
         $MODE \
         $OUTPUT_NAME \
