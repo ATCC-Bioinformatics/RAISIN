@@ -13,7 +13,7 @@ logger(){
     elif [ $action_status == "Start" ]; then
         echo "$(date) Starting $phrase "| tee -a "$log_path" >&2
     elif [ $action_status == "Done" ]; then
-        echo "$(date) Y'all've already done this. Passing $phrase"| tee -a "$log_path" >&2
+        echo "$(date) Y'all've already done this. Passing $phrase" | tee -a "$log_path" >&2
     elif [ $action_status == "Fail" ]; then
         echo "$(date) $phrase failed."| tee -a "$log_path" >&2
     else
@@ -127,6 +127,8 @@ call_variants() {
     local bam_path=$2
     local vcf_path=$3
     local threads=$4
+    local min_freq=$5
+    local min_cov=$6
 
     local indelqual_bam_path="${bam_path::-4}"_indelqual.bam
     local indelqual_alnqual_bam_path="${bam_path::-4}"_indelqual_alnqual.bam
@@ -143,7 +145,8 @@ call_variants() {
     lofreq alnqual -b $indelqual_bam_path $reference_path > $indelqual_alnqual_bam_path 2>&2
     samtools index $indelqual_alnqual_bam_path 2>&2
     lofreq call-parallel --pp-threads $threads --call-indels -f $reference_path $indelqual_alnqual_bam_path -o $indelcall_vcf_path 2>&2
-    lofreq filter -i $indelcall_vcf_path -v 10 -a 0.05 > $vcf_path 2>&2
+    # lofreq filter -i $indelcall_vcf_path -v 10 -a 0.05 > $vcf_path 2>&2
+    lofreq filter -i $indelcall_vcf_path -v "$min_cov" -a "$min_freq" > $vcf_path 2>&2
     if [ -f "$vcf_path" ]
     then
         logger "LoFreq variant calling" "Success"| tee -a "$log_path" >&2
@@ -177,6 +180,7 @@ call_consensus() {
     local output_dir_path=$4
     local consensus_path=$5
     local threads=$6
+    local min_cov=$7
 
     local bed_path=$output_dir_path/low-coverage-regions.bed
     local bed_path_temp=$output_dir_path/low-coverage-regions_temp.bed
@@ -186,7 +190,7 @@ call_consensus() {
     else
     logger "to calculate low coverage regions using bedtools" "Start"| tee -a "$log_path" >&2
     bedtools genomecov -ibam "$bam_path" -bga |
-        awk -F $'\t' '$4 < 10' > "$bed_path_temp" 2>&2
+        awk -F $'\t' '$4 < $min_cov' > "$bed_path_temp" 2>&2
 
     if [ $(stat -c %s "$bed_path_temp") -gt 0 ]
     then
@@ -255,17 +259,17 @@ read_counter(){
 }
 
 trim_filt(){
-    outdir=$1
+    output_dir=$1
     threads=$2
     fwd=$3
     rev=$4
 
     read_counter $fwd
     read_counter $rev
-    mkdir -p $outdir/pre_QC
-    if [ -f "$outdir"/$(basename $fwd .fastq.gz).filtered.fastq.gz ]
+    mkdir -p $output_dir/pre_QC
+    if [ -f "$output_dir"/$(basename $fwd .fastq.gz).filtered.fastq.gz ]
     then
-        logger "Read trimming and filtering completed previously. Moving on." "Pass" | tee -a "$log_path" >&2
+        logger "Read trimming and filtering" "Done" | tee -a "$log_path" >&2
     else
         logger "Read trimming and filtering with fastp." "Start" | tee -a "$log_path" >&2
     
@@ -273,30 +277,26 @@ trim_filt(){
         if [ $(readlink -- "$fwd") ]
         then
             if ( file $(readlink -- "$fwd") | grep -q compressed ) ; then 
-                #echo "$fwd was symlinked and was compressed" | tee -a "$log_path" >&2
                 file_ext=".fastq.gz"
             else
-                #echo "$fwd was symlinked and was not compressed" | tee -a "$log_path" >&2
                 file_ext=".fastq"
             fi
         else
             if ( file "$fwd" | grep -q compressed ) ; then 
-                #echo "$fwd was not symlinked and was compressed" | tee -a "$log_path" >&2
                 file_ext=".fastq.gz"
             else
-                #echo "$fwd was not symlinked and was not compressed" | tee -a "$log_path" >&2
                 file_ext=".fastq"
             fi
         fi #symlink check
-        if [ ! -f "$outdir"/pre_QC/fastp.json ]
+        if [ ! -f "$output_dir"/pre_QC/fastp.json ]
         then
             timeout -s 1 5m \
             fastp -i $fwd \
                 -I $rev \
-                -o "$outdir"/$(basename $fwd $file_ext).filtered.fastq.gz \
+                -o "$output_dir"/$(basename $fwd $file_ext).filtered.fastq.gz \
                 --detect_adapter_for_pe \
-                -O "$outdir"/$(basename $rev $file_ext).filtered.fastq.gz \
-                -h "$outdir"/pre_QC/fastp.html -j "$outdir"/pre_QC/fastp.json 2>&2
+                -O "$output_dir"/$(basename $rev $file_ext).filtered.fastq.gz \
+                -h "$output_dir"/pre_QC/fastp.html -j "$output_dir"/pre_QC/fastp.json 2>&2
             tko=$(echo $?)
             if [[ "$tko" -eq 124 ]]
             then
@@ -304,24 +304,24 @@ trim_filt(){
                 repair.sh -Xmx14g \
                 in1="$fwd" \
                 in2="$rev" \
-                out1="$outdir"/$(basename "$fwd" $file_ext).repaired.fastq.gz \
-                out2="$outdir"/$(basename "$rev" $file_ext).repaired.fastq.gz \
-                outs="$outdir"/"$cat_num"_"$ext_num"_"$sub_id"_singletons.fastq.gz \
+                out1="$output_dir"/$(basename "$fwd" $file_ext).repaired.fastq.gz \
+                out2="$output_dir"/$(basename "$rev" $file_ext).repaired.fastq.gz \
+                outs="$output_dir"/"$cat_num"_"$ext_num"_"$sub_id"_singletons.fastq.gz \
                 repair 2>&2
                 tko=$(echo $?)
                 if [[ "$tko" -eq 124 ]]
                 then
                     logger "trim filt" "Fail"
                 fi
-                fwd="$outdir"/$(basename "$fwd" $file_ext).repaired.fastq.gz
-                rev="$outdir"/$(basename "$rev" $file_ext).repaired.fastq.gz
+                fwd="$output_dir"/$(basename "$fwd" $file_ext).repaired.fastq.gz
+                rev="$output_dir"/$(basename "$rev" $file_ext).repaired.fastq.gz
                 timeout -s 1 30m \
                 fastp -i $fwd \
                     -I $rev \
-                    -o "$outdir"/$(basename $fwd $file_ext).filtered.fastq.gz \
+                    -o "$output_dir"/$(basename $fwd $file_ext).filtered.fastq.gz \
                     --detect_adapter_for_pe \
-                    -O "$outdir"/$(basename $rev $file_ext).filtered.fastq.gz \
-                    -h "$outdir"/pre_QC/fastp.html -j "$outdir"/pre_QC/fastp.json 2>&2
+                    -O "$output_dir"/$(basename $rev $file_ext).filtered.fastq.gz \
+                    -h "$output_dir"/pre_QC/fastp.html -j "$output_dir"/pre_QC/fastp.json 2>&2
                 tko=$(echo $?)
                 if [[ "$tko" -eq 124 ]]
                 then
@@ -330,9 +330,9 @@ trim_filt(){
             fi #end timeout repeat of fastp post-repair
         fi #end fastp
 
-        if [ -f "$outdir"/$(basename $rev $file_ext).filtered.fastq.gz ]
+        if [ -f "$output_dir"/$(basename $rev $file_ext).filtered.fastq.gz ]
         then
-            logger "Read trimming and filtering with fastp " "True"| tee -a "$log_path" >&2
+            logger "Read trimming and filtering with fastp " "Success"| tee -a "$log_path" >&2
         else
             logger "fastp output not found. " "Fail"| tee -a "$log_path" >&2
             continue
@@ -341,20 +341,19 @@ trim_filt(){
 }
 
 run_multiqc(){
-    outdir=$1
+    output_dir=$1
     fwd=$2
     rev=$3
     THREADS=$4
 
-    if [ -d "$outdir"/pre_QC/multiqc_plots ]
+    if [ -d "$output_dir"/pre_QC/multiqc_plots ]
     then
-        logger "FastQC and MultiQC completed previously. Moving on." "Pass" | tee -a "$log_path" >&2
+        logger "FastQC and MultiQC" "Done" | tee -a "$log_path" >&2
     else 
         logger " Pre-QC analysis compilation with FastqQC and MultiQC." "Start" | tee -a "$log_path" >&2
-        ###! threads not being read into fastqc command
-        fastqc "$fwd" "$rev" -t "$THREADS" -o "$outdir"/pre_QC 2>&2
-        multiqc -m fastqc -p "$outdir"/pre_QC -o "$outdir"/pre_QC 2>&2
-        logger "Pre-QC analysis compilation with FastQC, and MultiQC " "True" | tee -a "$log_path" >&2    
+        fastqc "$fwd" "$rev" -t "$THREADS" -o "$output_dir"/pre_QC 2>&2
+        multiqc -m fastqc -p "$output_dir"/pre_QC -o "$output_dir"/pre_QC 2>&2
+        logger "Pre-QC analysis compilation with FastQC, and MultiQC " "Success" | tee -a "$log_path" >&2    
     fi
 }
 
@@ -365,6 +364,8 @@ consensus(){
     REV=$4
     THREADS=$5
     REF=$6
+    MIN_FREQ=$7
+    MIN_COV=$8
 
     ref_id=$(basename $REF .fasta)
     bam_path=$outdir/"$output_name"_"reads_to_reference"_"$ref_id"_mapping.bam
@@ -390,7 +391,7 @@ consensus(){
     then
         echo "$(date) lofreq.vcf already exists" | tee -a "$log_path" >&2
     else
-        call_variants $REF $bam_path $vcf_path $THREADS
+        call_variants $REF $bam_path $vcf_path $THREADS $MIN_FREQ $MIN_COV
     fi
     #### GENERATE CONSENSUS SEQUENCE AND PERFORM POST QC ####
     if [ -f "$consensus_path" ]
@@ -398,7 +399,7 @@ consensus(){
         echo "$(date) consensus.fasta already exists" | tee -a "$log_path" >&2
     else
         ## call_consensus bam_path vcf_path ref_path output_dir_path consensus_name threads rename_headers
-        call_consensus $bam_path_final $vcf_path $REF $outdir $consensus_path $THREADS
+        call_consensus $bam_path_final $vcf_path $REF $outdir $consensus_path $THREADS $MIN_COV
     fi
 
     #### CLEAN UP DIRECTORY ####

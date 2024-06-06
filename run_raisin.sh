@@ -14,6 +14,8 @@ EOF
     -o for top-level output/working directory (required),
     -f for an output name to add to the beginning of all generated files (optional, default=RAISIN_analysis),
     -t for threads (optional, default=8),
+    -q for minimum variant frequency threshold, enter as a decimal, i.e. 0.05, (optional, default=0.05),
+    -c for minimum read coverage for variant calling, (optional, default=10) 
 
     ####### RAISIN Modes ####################
     ----------------------------------------------------------------------------------------------
@@ -98,7 +100,7 @@ EOF
     exit 1
 }
 
-while getopts 'm:s:1:2:o:f:r:g:t:a:n:e:v:w:k:b:x:y:X:Y:dh' OPTION
+while getopts 'm:s:1:2:o:f:r:g:t:q:c:a:n:e:v:w:k:b:x:y:X:Y:dh' OPTION
 do
   case "$OPTION" in
     m) MODE=$OPTARG
@@ -122,6 +124,10 @@ do
     k) ANCHOR_GBK=$OPTARG
       ;;
     t) THREADS=$OPTARG
+      ;;
+    q) MIN_FREQ=$OPTARG
+      ;;
+    c) MIN_COV=$OPTARG
       ;;
     n) ACCESSION=$OPTARG
       ;;
@@ -160,6 +166,22 @@ if [ -z $WORKING_DIR ] # if no working directory is supplied
 then
   echo "Output directory path (-o) must be supplied! Exiting pipeline..."
   exit  
+fi
+## Setting default values if necessary
+if [ -z $THREADS ] # if no threads is supplied
+then
+  echo "Setting threads to default 8"
+  THREADS=8
+fi
+if [ -z $MIN_FREQ ] # if no minium variant frequency is supplied
+then
+  echo "Setting minimum frequency to default 0.05"
+  MIN_FREQ=0.05
+fi
+if [ -z $MIN_COV ] # if no minimum read coverage is supplied
+then
+  echo "Setting minimum coverage to default 10"
+  MIN_COV=10
 fi
 
 if [ $MODE == "STANDARD" ] || [ $MODE == "ANCHOR" ]
@@ -286,6 +308,8 @@ else
   echo "INPUT MODE: $INPUT" | tee -a "$log_path" >&2
   echo "FWD: $FWD" | tee -a "$log_path" >&2
   echo "REV: $REV" | tee -a "$log_path" >&2
+  echo "MINIMUM VARIANT FREQUENCY: $MIN_FREQ" | tee -a "$log_path" >&2
+  echo "MINIMUM READ COVERAGE: $MIN_COV" | tee -a "$log_path" >&2
   echo "STRAIN VCF (STANDARD ONLY): $VCF" | tee -a "$log_path" >&2
   echo "REFERENCE PATH: $REF" | tee -a "$log_path" >&2
   echo "GBK PATH: $GBK" | tee -a "$log_path" >&2
@@ -391,7 +415,9 @@ else
         $FWD \
         $REV \
         $THREADS \
-        $REF
+        $REF \
+        $MIN_FREQ \
+        $MIN_COV
     
     ref_id=$(basename $REF .fasta)
     vcf_path=$outdir/"$OUTPUT_NAME"_"reads_to_reference"_"$ref_id"_lofreq.vcf
