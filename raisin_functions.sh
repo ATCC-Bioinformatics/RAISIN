@@ -190,7 +190,7 @@ call_consensus() {
     else
     logger "to calculate low coverage regions using bedtools" "Start"| tee -a "$log_path" >&2
     bedtools genomecov -ibam "$bam_path" -bga |
-        awk -F $'\t' '$4 < $min_cov' > "$bed_path_temp" 2>&2
+        awk -v min="$min_cov" -F $'\t' '$4 < min' > "$bed_path_temp" 2>&2
 
     if [ $(stat -c %s "$bed_path_temp") -gt 0 ]
     then
@@ -264,15 +264,14 @@ trim_filt(){
     fwd=$3
     rev=$4
 
-    read_counter $fwd
-    read_counter $rev
     mkdir -p $output_dir/pre_QC
     if [ -f "$output_dir"/$(basename $fwd .fastq.gz).filtered.fastq.gz ]
     then
         logger "Read trimming and filtering" "Done" | tee -a "$log_path" >&2
     else
         logger "Read trimming and filtering with fastp." "Start" | tee -a "$log_path" >&2
-    
+        read_counter $fwd
+        read_counter $rev
         #often times, fastp will get stuck on a sample. We're giving it a 10 minute opportunity to succeed, after which it will run repair.sh and try again
         if [ $(readlink -- "$fwd") ]
         then
