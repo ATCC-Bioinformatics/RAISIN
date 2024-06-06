@@ -49,7 +49,6 @@ for r in SeqIO.parse(open(gbk_file,"r"), "genbank"):
                 features[label]['end'] = end
                 features[label]['reference2regionposition'] = {}
                 features[label]['strand'] = f.location.strand
-
                 aa_seq = f.qualifiers['translation'][0]
                 nt_seq = ""
                 if f.location.strand == 1:
@@ -73,7 +72,7 @@ for r in SeqIO.parse(open(gbk_file,"r"), "genbank"):
 
 #######* Parse VCF ##############################
 variants = {}
-for line in open(sys.argv[1]):
+for line in open(vcf_file):
     if "#" not in line:
         line = line.strip().split("\t")
         pos = line[1]
@@ -102,18 +101,29 @@ if mode == "ANCHOR":
     anchor_variants = {}
     strain_positions = list(variants.keys())
     for i in range(0, len(strain_positions)):
-        vcf_pos = strain_positions[i]
-        print("Position: ", vcf_pos)
+        vcf_pos = strain_positions[i] # each position in vcf
+        ref_nuc = variants[vcf_pos][0]
+        alt_nuc = variants[vcf_pos][1]
+        print("Position: ", vcf_pos, ref_nuc, alt_nuc)
+        print(len(ref_nuc), len(alt_nuc))
         for anchor_pos, strain_pos in anchor_strain_dict.items():
-            if type(strain_pos) is not list: ## address non-indels first (positions of indels are in a list format)
-                if int(vcf_pos) == int(strain_pos):
-                    # print(vcf_pos, strain_pos)
-                    anchor_variants[str(anchor_pos)] = variants[vcf_pos]
-            if type(anchor_pos) == str and anchor_pos.count("-") == 1:
-                for nuc in strain_pos:
-                    if int(vcf_pos) == int(nuc):
-                        anchor_start = int(anchor_pos.split("-")[0])+1
-                        anchor_variants[str(anchor_start)] = variants[vcf_pos]
+                if type(strain_pos) is not list:
+                    if int(vcf_pos) == int(strain_pos):
+                        if len(ref_nuc) == 1: ## address non-indels first 
+                            anchor_variants[str(anchor_pos)] = variants[vcf_pos]
+                        if len(ref_nuc) > 1: ## address non-indels first 
+                            anchor_variants[str(anchor_pos+1)] = variants[vcf_pos]
+
+        # if type(strain_pos) is not list: ## address non-indels first (positions of indels are in a list format)
+        #     if int(vcf_pos) == int(strain_pos):
+        #         # print(vcf_pos, strain_pos)
+        #         anchor_variants[str(anchor_pos)] = variants[vcf_pos]
+        # if type(anchor_pos) == str and anchor_pos.count("-") == 1:
+        #     print("Anchor pos: ", anchor_pos, "Strain pos: ", strain_pos)
+        #     for nuc in strain_pos:
+        #         if int(vcf_pos) == int(nuc):
+        #             anchor_start = int(anchor_pos.split("-")[0])+1
+        #             anchor_variants[str(anchor_start)] = variants[vcf_pos]
     
     variants = anchor_variants
 
@@ -261,6 +271,7 @@ if mode == "ANCHOR":
     consen_seq=sample_consensus.replace("-", "")
 
     deletion_pos = []
+    strain_deletion = []
     msa_variants = {}
     for pos in anchor_strain_dict.keys():
         for k in features.keys(): #where features is a parsed gbk)
@@ -305,7 +316,7 @@ if mode == "ANCHOR":
             elif pos > prot_start and pos < prot_end:
                 ## * DELETION!! # {8:4, 9: [4], 10: [4], 11: [4], 12:5}
                 if type(alt_pos) == list:
-                    print("Deletion")
+                    print("Deletion time")
                     # Grab all the positions of the deletion
                     deletion_pos.append(pos)
                     if pos+1 not in anchor_strain_dict.keys():
@@ -320,7 +331,7 @@ if mode == "ANCHOR":
                         deleted_nucs = anchor_seq[deletion_pos[0]:del_end]
                         ref = anchor_seq[one_before_del:del_end]
                         alt = strain_seq[alt_pos[0]]
-                        cons = strain_seq[cons_pos[0]]
+                        cons = consen_seq[cons_pos[0]]
                         variant_type = determine_variant_type(ref, alt, cons)
                         mutated_region = get_mutated_region(protein,reference,del_start,ref,alt,gbk_file)
                         mutated_translation = ""
@@ -335,11 +346,52 @@ if mode == "ANCHOR":
                         msa_variants[del_start].append(indel_notation(region_translation,mutated_translation,len(deleted_nucs)%3!=0,"del"))
                         deletion_pos = [] ## reset deletion pos
                         break
+                if type(cons_pos) == list and type(alt_pos) != list:
+                    print("Type II Deletion")
+                    print("Now at position: ", pos)
+                    print("Cons status: ", cons_pos)
+                    print("Deletion list: ", deletion_pos)
+                    # Grab all the positions of the deletion
+                    deletion_pos.append(pos)
+                    strain_deletion.append(alt_pos)
+                    if pos+1 not in anchor_consen_dict.keys():
+                        # print("Position at end of reference!")
+                        break
+                    elif cons_pos == anchor_consen_dict[pos+1]: #if we're still in the deletion, keep moving through
+                        continue
+                    else: # we've reached the end of the deletion
+                        one_before_del = deletion_pos[0] - 1 # nucleotide right before start of deletion
+                        del_start = deletion_pos[0] + 1 # actual position of deletion start (1-based)
+                        del_end = deletion_pos[-1] + 1 # actual position of deletion end (1-based)
+                        deleted_nucs = anchor_seq[deletion_pos[0]:del_end]
+                        ref = anchor_seq[one_before_del:del_end]
+                        ## Do the same to get positions for the strain
+                        strain_one_before_del = strain_deletion[0] - 1 # nucleotide right before start of deletion
+                        strain_del_start = strain_deletion[0] + 1 # actual position of deletion start (1-based)
+                        strain_del_end = strain_deletion[-1] + 1 # actual position of deletion end (1-based)
+                        alt = strain_seq[strain_one_before_del:strain_del_end]
+                        cons = consen_seq[cons_pos[0]]
+                        variant_type = determine_variant_type(ref, alt, cons)
+                        mutated_region = get_mutated_region(protein,reference,del_start,ref,cons,gbk_file)
+                        mutated_translation = ""
+                        msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", original_codon, mutated_codon]
+                        for i in range(0,len(mutated_region),3):
+                            aa = genetic_code(mutated_region[i:i+3].upper())
+                            if i+3>len(mutated_region)-1 or aa == "*":
+                                break
+                            else:
+                                mutated_translation+=aa
+                        msa_variants[del_start].append(protein)
+                        msa_variants[del_start].append(indel_notation(region_translation,mutated_translation,len(deleted_nucs)%3!=0,"del"))
+                        deletion_pos = [] ## reset deletion pos
+                        strain_deletion = []
+                        break
                 else:
                     ref = anchor_seq[pos]
                     alt = strain_seq[alt_pos]
                     print("Anchor pos: ", pos, "Alt pos: ", alt_pos, "Consen pos: ", cons_pos)
                     cons = consen_seq[cons_pos]
+                    cons = replace_degenerate_nucleotides(cons, alt)
                     full_position = pos + 1  # actual position of SNP (1-based)
                     if ref == alt == cons: # if there is no snp
                         break

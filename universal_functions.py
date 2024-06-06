@@ -30,6 +30,23 @@ def genetic_code(codon):
     except:
         return 'X'
 
+def replace_degenerate_nucleotides(consensus_nuc, strain_nuc):
+    degen_table = {
+        'W': ['A', 'T'], 'S': ['C', 'G'], 'R': ['A', 'G'],
+        'Y': ['C', 'T'], 'K': ['G', 'T'], 'M': ['A', 'C'],
+    }
+    try:
+        consen = consensus_nuc.upper()
+        strain = strain_nuc.upper()
+        choices = degen_table[consen]
+        # Since consensus nucleotide is a degenerate nuc, the true identity
+        # of the nucleotide should be the nuc that does not match the strain
+        for nuc in choices:
+            if strain != nuc:
+                return nuc
+    except:
+        return consensus_nuc
+
 def get_mutated_region(region,reference,position,ref,alt, gbk_file):
     # set for 0 index used in biopython
     position -= 1
@@ -116,7 +133,6 @@ def indel_notation(original,mutated,frameshift,var):
         elif var == "ins":
             notation = f"{i}[" + mutated_diff_aas + f"]{i+1}" 
             return notation             
-
     else:
         for i in range(len(original)):
             if original[i] != mutated[i] or i+1 > len(mutated)-1 or i+1 > len(original)-1:
@@ -144,7 +160,7 @@ def process_alignment(msa_path):
     return alignments[0],alignments[1],alignments[2]
 
 def determine_variant_type(ref, alt, cons):
-    if ref != alt != cons:
+    if ref != alt != cons and ref != cons:
         var_type = "IV"
     elif ref == alt != cons:
         var_type = "II"

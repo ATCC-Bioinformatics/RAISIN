@@ -407,7 +407,7 @@ else
         FWD="$WORKING_DIR"/$(basename $FWD .fastq).filtered.fastq.gz
         REV="$WORKING_DIR"/$(basename $REV .fastq).filtered.fastq.gz
     fi
-    # run multi qc on trimmed reads
+    # run multiqc on trimmed reads
     run_multiqc "$WORKING_DIR" "$FWD" "$REV" "$THREADS"
     consensus \
         $outdir \
