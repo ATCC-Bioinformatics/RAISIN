@@ -109,22 +109,10 @@ if mode == "ANCHOR":
         for anchor_pos, strain_pos in anchor_strain_dict.items():
                 if type(strain_pos) is not list:
                     if int(vcf_pos) == int(strain_pos):
-                        if len(ref_nuc) == 1: ## address non-indels first 
+                        if len(ref_nuc) == 1: ## address SNPs and insertion first 
                             anchor_variants[str(anchor_pos)] = variants[vcf_pos]
-                        if len(ref_nuc) > 1: ## address non-indels first 
+                        elif len(ref_nuc) > 1: ##Deletions
                             anchor_variants[str(anchor_pos+1)] = variants[vcf_pos]
-
-        # if type(strain_pos) is not list: ## address non-indels first (positions of indels are in a list format)
-        #     if int(vcf_pos) == int(strain_pos):
-        #         # print(vcf_pos, strain_pos)
-        #         anchor_variants[str(anchor_pos)] = variants[vcf_pos]
-        # if type(anchor_pos) == str and anchor_pos.count("-") == 1:
-        #     print("Anchor pos: ", anchor_pos, "Strain pos: ", strain_pos)
-        #     for nuc in strain_pos:
-        #         if int(vcf_pos) == int(nuc):
-        #             anchor_start = int(anchor_pos.split("-")[0])+1
-        #             anchor_variants[str(anchor_start)] = variants[vcf_pos]
-    
     variants = anchor_variants
 
 ##############################################################################*
@@ -437,11 +425,41 @@ if mode == "ANCHOR":
                 msa_variants[anchor_pos][5] = frequency
                 msa_variants[anchor_pos][4] = cons_allele
     
+    # We need to add any missing vcf variants to the msa
+    msa_anchors = list(msa_variants.keys())
+    var_anchors = list(variants.keys())
+    # Anchor positions found in vcf that wasn't found by the msa
+    not_in_msa = [x for x in var_anchors if int(x) not in msa_anchors]
+    for anchor_position in not_in_msa:
+        # Get the anchor position and its corresponding nucleotide
+        anchor_pos = int(anchor_position)
+        anchor_nuc = anchor_seq[anchor_pos-1].upper()
+        # Grab everything we need from the parsed vcf
+        ref = variants[anchor_position][0].upper()
+        cons = variants[anchor_position][1].upper()
+        freq = variants[anchor_position][2]
+        region = variants[anchor_position][3]
+        aa_mut = variants[anchor_position][4]
+        # Determine the variant type, it should either be Type II or Type III
+        variant_type = determine_variant_type(anchor_nuc, ref, cons)
+        # Determine the type of variant
+        if len(ref) == len(cons):
+            var_type = "SNP"
+        elif len(ref) > len(cons):
+            var_type = "DEL"
+        else:
+            var_type = "INS"
+        # Add to variants
+        msa_variants[anchor_pos] = [var_type, "II", anchor_nuc, ref, cons, freq, "X", "X", region, aa_mut]
+
+        # Sort dictionary by position
+        msa_variants_sorted = {key:msa_variants[key] for key in sorted(msa_variants)}
+
     with open(f"{output_dir}/{output_name}_anchored_variants.txt","w") as f:
         f.write("\t".join(["Anchor Position","Variant", "Variant Type", "Anchor Allele","Strain Allele", "Sample Allele",
             "Allele Frequency", "Original Codon", "Mutated Codon", "Protein","AA mutation"]))
         f.write("\n")
-        for k in msa_variants.keys():
+        for k in msa_variants_sorted.keys():
             f.write(str(k)+"\t"+"\t".join(msa_variants[k])+"\n")
     
 
