@@ -258,6 +258,16 @@ if mode == "ANCHOR":
     strain_seq=strain.replace("-", "")
     consen_seq=sample_consensus.replace("-", "")
 
+    # Since the gbk don't have UTR regions, we need to put them in manually
+    # To do so, figure out where the first region begins and the last region ends
+    first_start = min([int(features[k]['start']) for k in features.keys()])
+    last_end = max([int(features[k]['end']) for k in features.keys()])
+    # all regions have a trailing 0 when the gbk is parsed, so mimic that
+    features["5'UTR0"] = {'start': '0', 'end': str(first_start-1), 
+        'reference2regionposition': '', 'strand': '', 'aa_seq': 'n/a', 'nt_seq': "n/a"}
+    features["3'UTR0"] = {'start': str(last_end+1), 'end': str(len(reference)-1), 
+        'reference2regionposition': '', 'strand': '', 'aa_seq': 'n/a', 'nt_seq': "n/a"}
+
     deletion_pos = []
     strain_deletion = []
     msa_variants = {}
@@ -287,17 +297,20 @@ if mode == "ANCHOR":
                     cons = consen_seq[one_before_ins:ins_end]
                     insertion_nucleotides = strain_seq[alt_pos[0]:ins_end]
                     variant_type = determine_variant_type(ref, alt, cons)
-                    msa_variants[ref_start+1] = ["INS", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", original_codon, mutated_codon]
-                    mutated_region = get_mutated_region(protein,reference,ref_start,ref,alt,gbk_file)
-                    mutated_translation = ""
-                    for i in range(0,len(mutated_region),3):
-                        aa = genetic_code(mutated_region[i:i+3].upper())
-                        if i+3>len(mutated_region)-1 or aa == "*":
-                            break
-                        else:
-                            mutated_translation+=aa
-                    msa_variants[ref_start+1].append(protein)
-                    msa_variants[ref_start+1].append(indel_notation(region_translation,mutated_translation,len(insertion_nucleotides)%3!=0,"ins"))
+                    if "'UTR" in protein:
+                        msa_variants[ref_start+1] = ["INS", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", protein, "n/a"]
+                    else:
+                        msa_variants[ref_start+1] = ["INS", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000"]
+                        mutated_region = get_mutated_region(protein,reference,ref_start,ref,alt,gbk_file)
+                        mutated_translation = ""
+                        for i in range(0,len(mutated_region),3):
+                            aa = genetic_code(mutated_region[i:i+3].upper())
+                            if i+3>len(mutated_region)-1 or aa == "*":
+                                break
+                            else:
+                                mutated_translation+=aa
+                        msa_variants[ref_start+1].append(protein)
+                        msa_variants[ref_start+1].append(indel_notation(region_translation,mutated_translation,len(insertion_nucleotides)%3!=0,"ins"))
             elif alt_pos == [-1]:
                 print("Strain reference hasn't started, skipping")
                 break
@@ -321,19 +334,22 @@ if mode == "ANCHOR":
                         alt = strain_seq[alt_pos[0]]
                         cons = consen_seq[cons_pos[0]]
                         variant_type = determine_variant_type(ref, alt, cons)
-                        mutated_region = get_mutated_region(protein,reference,del_start,ref,alt,gbk_file)
-                        mutated_translation = ""
-                        msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", original_codon, mutated_codon]
-                        for i in range(0,len(mutated_region),3):
-                            aa = genetic_code(mutated_region[i:i+3].upper())
-                            if i+3>len(mutated_region)-1 or aa == "*":
-                                break
-                            else:
-                                mutated_translation+=aa
-                        msa_variants[del_start].append(protein)
-                        msa_variants[del_start].append(indel_notation(region_translation,mutated_translation,len(deleted_nucs)%3!=0,"del"))
-                        deletion_pos = [] ## reset deletion pos
-                        break
+                        if "'UTR" in protein:
+                            msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", protein, "n/a"]
+                        else:
+                            mutated_region = get_mutated_region(protein,reference,del_start,ref,alt,gbk_file)
+                            mutated_translation = ""
+                            msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000"]
+                            for i in range(0,len(mutated_region),3):
+                                aa = genetic_code(mutated_region[i:i+3].upper())
+                                if i+3>len(mutated_region)-1 or aa == "*":
+                                    break
+                                else:
+                                    mutated_translation+=aa
+                            msa_variants[del_start].append(protein)
+                            msa_variants[del_start].append(indel_notation(region_translation,mutated_translation,len(deleted_nucs)%3!=0,"del"))
+                            deletion_pos = [] ## reset deletion pos
+                            break
                 if type(cons_pos) == list and type(alt_pos) != list:
                     print("Type II Deletion")
                     print("Now at position: ", pos)
@@ -360,24 +376,27 @@ if mode == "ANCHOR":
                         alt = strain_seq[strain_one_before_del:strain_del_end]
                         cons = consen_seq[cons_pos[0]]
                         variant_type = determine_variant_type(ref, alt, cons)
-                        mutated_region = get_mutated_region(protein,reference,del_start,ref,cons,gbk_file)
-                        mutated_translation = ""
-                        msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", original_codon, mutated_codon]
-                        for i in range(0,len(mutated_region),3):
-                            aa = genetic_code(mutated_region[i:i+3].upper())
-                            if i+3>len(mutated_region)-1 or aa == "*":
-                                break
-                            else:
-                                mutated_translation+=aa
-                        msa_variants[del_start].append(protein)
-                        msa_variants[del_start].append(indel_notation(region_translation,mutated_translation,len(deleted_nucs)%3!=0,"del"))
-                        deletion_pos = [] ## reset deletion pos
-                        strain_deletion = []
-                        break
+                        if "'UTR" in protein:
+                            msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", protein, "n/a"]
+                        else:
+                            mutated_region = get_mutated_region(protein,reference,del_start,ref,cons,gbk_file)
+                            mutated_translation = ""
+                            msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000"]
+                            for i in range(0,len(mutated_region),3):
+                                aa = genetic_code(mutated_region[i:i+3].upper())
+                                if i+3>len(mutated_region)-1 or aa == "*":
+                                    break
+                                else:
+                                    mutated_translation+=aa
+                            msa_variants[del_start].append(protein)
+                            msa_variants[del_start].append(indel_notation(region_translation,mutated_translation,len(deleted_nucs)%3!=0,"del"))
+                            deletion_pos = [] ## reset deletion pos
+                            strain_deletion = []
+                            break
                 else:
                     ref = anchor_seq[pos]
                     alt = strain_seq[alt_pos]
-                    print("Anchor pos: ", pos, "Alt pos: ", alt_pos, "Consen pos: ", cons_pos)
+                    # print("Anchor pos: ", pos, "Alt pos: ", alt_pos, "Consen pos: ", cons_pos)
                     cons = consen_seq[cons_pos]
                     cons = replace_degenerate_nucleotides(cons, alt)
                     full_position = pos + 1  # actual position of SNP (1-based)
@@ -385,34 +404,35 @@ if mode == "ANCHOR":
                         break
                     if alt.lower() == "n":
                         break
+                    if cons.lower() == "n":
+                        break
                     variant_type = determine_variant_type(ref, alt, cons)
-                    if variant_type == "II": # if consensus is the nucleotide of difference
-                        mutated_region = get_mutated_region(protein,reference,pos+1,ref,cons,gbk_file)
+                    if "'UTR" in protein:
+                        msa_variants[full_position] = ["SNP", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", protein, "n/a"]
                     else:
-                        mutated_region = get_mutated_region(protein,reference,pos+1,ref,alt,gbk_file)
-                    if mutated_region != region:
-                        codon_number = 0
-                        for i in range(0,len(mutated_region),3):
-                            codon_number+=1
-                            if mutated_region[i:i+3] != region[i:i+3]:
-                                original_codon = region[i:i+3]
-                                mutated_codon = mutated_region[i:i+3]
-                                original_aa = genetic_code(original_codon.upper())
-                                mutated_aa = genetic_code(mutated_codon.upper())
-                                break
-                                # print(c,mutated_region[i:i+3], region[i:i+3])
-                        msa_variants[full_position] = ["SNP", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", original_codon, mutated_codon]
-                        # add notation to VCF
-                        if original_aa == mutated_aa:
-                            msa_variants[full_position].append(protein)
-                            msa_variants[full_position].append("--")
+                        if variant_type == "II": # if consensus is the nucleotide of difference
+                            mutated_region = get_mutated_region(protein,reference,pos+1,ref,cons,gbk_file)
                         else:
-                            msa_variants[full_position].append(protein)
-                            msa_variants[full_position].append(original_aa+str(codon_number)+mutated_aa)
-            # else:
-            #     print("Something weird is going on")
-            #     print(pos, protein, "start: ", int(features[k]['start']), "end: ", int(features[k]['end']))
-            # break
+                            mutated_region = get_mutated_region(protein,reference,pos+1,ref,alt,gbk_file)
+                        if mutated_region != region:
+                            codon_number = 0
+                            for i in range(0,len(mutated_region),3):
+                                codon_number+=1
+                                if mutated_region[i:i+3] != region[i:i+3]:
+                                    original_codon = region[i:i+3]
+                                    mutated_codon = mutated_region[i:i+3]
+                                    original_aa = genetic_code(original_codon.upper())
+                                    mutated_aa = genetic_code(mutated_codon.upper())
+                                    break
+                                    # print(c,mutated_region[i:i+3], region[i:i+3])
+                            msa_variants[full_position] = ["SNP", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000"]
+                            # add notation to VCF
+                            if original_aa == mutated_aa:
+                                msa_variants[full_position].append(protein)
+                                msa_variants[full_position].append("--")
+                            else:
+                                msa_variants[full_position].append(protein)
+                                msa_variants[full_position].append(original_aa+str(codon_number)+mutated_aa)
 
     #! Merge with vcf to get frequency information for type II variants
     # temp_msa = {k:msa_variants[k] for k in msa_variants.keys()}
@@ -450,17 +470,18 @@ if mode == "ANCHOR":
         else:
             var_type = "INS"
         # Add to variants
-        msa_variants[anchor_pos] = [var_type, "II", anchor_nuc, ref, cons, freq, "X", "X", region, aa_mut]
+        msa_variants[anchor_pos] = [var_type, "II", anchor_nuc, ref, cons, freq, region, aa_mut]
 
         # Sort dictionary by position
         msa_variants_sorted = {key:msa_variants[key] for key in sorted(msa_variants)}
 
     with open(f"{output_dir}/{output_name}_anchored_variants.txt","w") as f:
         f.write("\t".join(["Anchor Position","Variant", "Variant Type", "Anchor Allele","Strain Allele", "Sample Allele",
-            "Allele Frequency", "Original Codon", "Mutated Codon", "Protein","AA mutation"]))
+            "Allele Frequency", "Protein","AA mutation"]))
         f.write("\n")
         for k in msa_variants_sorted.keys():
             f.write(str(k)+"\t"+"\t".join(msa_variants[k])+"\n")
     
+
 
 print("Completed") 
