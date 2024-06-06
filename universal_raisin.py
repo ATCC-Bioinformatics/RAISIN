@@ -300,12 +300,14 @@ if mode == "ANCHOR":
                 ## * DELETION!! # {8:4, 9: [4], 10: [4], 11: [4], 12:5}
                 if type(alt_pos) == list:
                     print("Deletion time")
+                    print("Anchor pos: ", pos, "Alt pos: ", alt_pos, "Consen pos: ", cons_pos)
                     # Grab all the positions of the deletion
                     deletion_pos.append(pos)
                     if pos+1 not in anchor_strain_dict.keys():
                         # print("Position at end of reference!")
                         break
                     elif alt_pos == anchor_strain_dict[pos+1]: #if we're still in the deletion, keep moving through
+                        print("Continuing", alt_pos)
                         continue
                     else: # we've reached the end of the deletion
                         one_before_del = deletion_pos[0] - 1 # nucleotide right before start of deletion
@@ -332,7 +334,7 @@ if mode == "ANCHOR":
                             msa_variants[del_start].append(indel_notation(region_translation,mutated_translation,len(deleted_nucs)%3!=0,"del"))
                             deletion_pos = [] ## reset deletion pos
                             break
-                if type(cons_pos) == list and type(alt_pos) != list:
+                elif type(cons_pos) == list and type(alt_pos) != list:
                     print("Type II Deletion")
                     print("Now at position: ", pos)
                     print("Cons status: ", cons_pos)
@@ -376,9 +378,9 @@ if mode == "ANCHOR":
                             strain_deletion = []
                             break
                 else:
+                    print("Anchor pos: ", pos, "Alt pos: ", alt_pos, "Consen pos: ", cons_pos)
                     ref = anchor_seq[pos]
                     alt = strain_seq[alt_pos]
-                    # print("Anchor pos: ", pos, "Alt pos: ", alt_pos, "Consen pos: ", cons_pos)
                     cons = consen_seq[cons_pos]
                     cons = replace_degenerate_nucleotides(cons, alt)
                     full_position = pos + 1  # actual position of SNP (1-based)
