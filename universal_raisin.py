@@ -1,12 +1,11 @@
 ## INPUTS: VCF, GBK, MODE, output_name, and output_dir, and mafft (ANCHOR MODE ONLY)
 ## Output: amino acid mutations
-## Optional output: visualization of mutations
+
 import os
 import sys
 from Bio import SeqIO
 from universal_functions import *
 
-# print(sys.argv, len(sys.argv))
 vcf_file = sys.argv[1]
 gbk_file = sys.argv[2]
 mode = sys.argv[3]
@@ -126,12 +125,8 @@ for position in variants.keys():
     # "_" is present if there are multiple variants at a position
     if "_" in position:
         position = position[:position.index("_")]
-    # Find if variant is in CDS region
-    # if int(position) == 13386 and len([e for e in variants[position][1][1:] if e != 'C']) == 0:
-    #     variants[full_position].append("ORF1ab")
-    #     variants[full_position].append("-1 Ribosomal frameshift site")
     if int(position) == -10:
-        print("This should never happen. It's just a chunk of code to keep things working, since the above was commented out.")
+        print("This should never happen. It's just a chunk of code to keep things working.")
     else:
         for k in features.keys():
             start = int(features[k]['start'])
@@ -142,8 +137,6 @@ for position in variants.keys():
             if int(position) >= start and int(position) <= end:
                 # To get the aa mutation(s) pull out the reference CDS and generate the consensus CDS
                 region = features[k]['nt_seq']
-                # if features[k]['strand'] == -1:
-                #     region = ''.join([revcom[e] for e in nt_seq])
                 # If the lengths of the ref and alt alleles are the same and == 1 then SNP
                 if len(variants[position][0])==len(variants[position][1]) and len(variants[position][1]) == 1:
                     # print(protein,reference,int(position),variants[position][0],variants[position][1])
@@ -153,17 +146,6 @@ for position in variants.keys():
                         variants[full_position].append('UTR')
                         variants[full_position].append("n/a")
                     else:
-                        # find the variant position relative to the region
-                        # region_variant_position = int(position) - 1 - start
-                        # if features[k]['strand'] == -1:
-                        #     region_variant_position = int(position) - 1 - end    
-                        # determine the codon number and codon position [0,1,2]
-                        # codon_number = region_variant_position//3
-                        # codon_position = region_variant_position - (codon_number*3) # 0, 1, or 2
-                        # pull out the original and mutated codon and translate
-                        # original_codon = region[(codon_number*3):(codon_number*3)+3]
-                        # mutated_codon = mutated_region[(codon_number*3):(codon_number*3)+3]
-                        # print(variants[position])
                         codon_number = 0
                         for i in range(0,len(mutated_region),3):
                             codon_number+=1
@@ -482,6 +464,3 @@ if mode == "ANCHOR":
         for k in msa_variants_sorted.keys():
             f.write(str(k)+"\t"+"\t".join(msa_variants[k])+"\n")
     
-
-
-print("Completed") 
