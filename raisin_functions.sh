@@ -217,6 +217,147 @@ call_consensus() {
 
 }
 
+read_counter(){
+    logger "Read counter for $1" "Start"
+    reads=$1
+    if ( file "$reads" | grep -q compressed ) ; then
+        count=$(echo $(zcat $reads | wc -l) /4 | bc)
+        Ns=$(zcat $reads | awk '(NR%4 == 2)'|grep -o N | wc -l) #only check within the nucleotide line
+        mean_len=$(zcat $reads | awk '{if(NR%4 == 2) {count++; bases += length} } END {print bases/count}')
+    else
+        echo counting
+        count=$(echo $(wc -l $reads|cut -d\  -f1)/4 | bc)
+        echo ontoNs
+        Ns=$(awk '(NR%4 == 2)' $reads | grep -o N | wc -l)
+        echo ontoLength
+        mean_len=$(awk '{if(NR%4 == 2) {count++; bases += length} } END {print bases/count}' $reads)
+    fi #compressed? Gather stats!
+
+    #if there are no Ns, it will return empty
+    if [ -z $Ns ]
+    then
+        Ns=0
+    fi
+
+    bases=$(echo "$count*$mean_len" | bc|cut -d\. -f1)
+    if [[ $count < 1000 ]]
+    then
+        logger "reads too low to continue" "Fail"
+        exit
+    fi
+    Nextra=$(echo ${Ns}*100 | bc)
+    if [ $(echo "$Nextra/$bases" | bc) -gt 25 ] #25 is arbitrary starting number to represent 25% because bc doesn't do decimals
+    then
+        logger "too many Ns!" " Fail"
+        exit
+    fi
+
+}
+
+trim_filt(){
+    outdir=$1
+    threads=$2
+    fwd=$3
+    rev=$4
+
+    read_counter $fwd
+    read_counter $rev
+    mkdir -p $outdir/pre_QC
+    if [ -f "$outdir"/$(basename $fwd .fastq.gz).filtered.fastq.gz ]
+    then
+        logger "Read trimming and filtering completed previously. Moving on." "Pass" | tee -a "$log_path" >&2
+    else
+        logger "Read trimming and filtering with fastp." "Start" | tee -a "$log_path" >&2
+    
+        #often times, fastp will get stuck on a sample. We're giving it a 10 minute opportunity to succeed, after which it will run repair.sh and try again
+        if [ $(readlink -- "$fwd") ]
+        then
+            if ( file $(readlink -- "$fwd") | grep -q compressed ) ; then 
+                #echo "$fwd was symlinked and was compressed" | tee -a "$log_path" >&2
+                file_ext=".fastq.gz"
+            else
+                #echo "$fwd was symlinked and was not compressed" | tee -a "$log_path" >&2
+                file_ext=".fastq"
+            fi
+        else
+            if ( file "$fwd" | grep -q compressed ) ; then 
+                #echo "$fwd was not symlinked and was compressed" | tee -a "$log_path" >&2
+                file_ext=".fastq.gz"
+            else
+                #echo "$fwd was not symlinked and was not compressed" | tee -a "$log_path" >&2
+                file_ext=".fastq"
+            fi
+        fi #symlink check
+        if [ ! -f "$outdir"/pre_QC/fastp.json ]
+        then
+            timeout -s 1 5m \
+            fastp -i $fwd \
+                -I $rev \
+                -o "$outdir"/$(basename $fwd $file_ext).filtered.fastq.gz \
+                --detect_adapter_for_pe \
+                -O "$outdir"/$(basename $rev $file_ext).filtered.fastq.gz \
+                -h "$outdir"/pre_QC/fastp.html -j "$outdir"/pre_QC/fastp.json 2>&2
+            tko=$(echo $?)
+            if [[ "$tko" -eq 124 ]]
+            then
+                timeout -s 1 1h \
+                repair.sh -Xmx14g \
+                in1="$fwd" \
+                in2="$rev" \
+                out1="$outdir"/$(basename "$fwd" $file_ext).repaired.fastq.gz \
+                out2="$outdir"/$(basename "$rev" $file_ext).repaired.fastq.gz \
+                outs="$outdir"/"$cat_num"_"$ext_num"_"$sub_id"_singletons.fastq.gz \
+                repair 2>&2
+                tko=$(echo $?)
+                if [[ "$tko" -eq 124 ]]
+                then
+                    logger "trim filt" "Fail"
+                fi
+                fwd="$outdir"/$(basename "$fwd" $file_ext).repaired.fastq.gz
+                rev="$outdir"/$(basename "$rev" $file_ext).repaired.fastq.gz
+                timeout -s 1 30m \
+                fastp -i $fwd \
+                    -I $rev \
+                    -o "$outdir"/$(basename $fwd $file_ext).filtered.fastq.gz \
+                    --detect_adapter_for_pe \
+                    -O "$outdir"/$(basename $rev $file_ext).filtered.fastq.gz \
+                    -h "$outdir"/pre_QC/fastp.html -j "$outdir"/pre_QC/fastp.json 2>&2
+                tko=$(echo $?)
+                if [[ "$tko" -eq 124 ]]
+                then
+                    logger "FINAL trim filt" "Fail"
+                fi
+            fi #end timeout repeat of fastp post-repair
+        fi #end fastp
+
+        if [ -f "$outdir"/$(basename $rev $file_ext).filtered.fastq.gz ]
+        then
+            logger "Read trimming and filtering with fastp " "True"| tee -a "$log_path" >&2
+        else
+            logger "fastp output not found. " "Fail"| tee -a "$log_path" >&2
+            continue
+        fi #if short filtered.fastq.gz exists
+    fi #if json
+}
+
+run_multiqc(){
+    outdir=$1
+    fwd=$2
+    rev=$3
+    THREADS=$4
+
+    if [ -d "$outdir"/pre_QC/multiqc_plots ]
+    then
+        logger "FastQC and MultiQC completed previously. Moving on." "Pass" | tee -a "$log_path" >&2
+    else 
+        logger " Pre-QC analysis compilation with FastqQC and MultiQC." "Start" | tee -a "$log_path" >&2
+        ###! threads not being read into fastqc command
+        fastqc "$fwd" "$rev" -t "$THREADS" -o "$outdir"/pre_QC 2>&2
+        multiqc -m fastqc -p "$outdir"/pre_QC -o "$outdir"/pre_QC 2>&2
+        logger "Pre-QC analysis compilation with FastQC, and MultiQC " "True" | tee -a "$log_path" >&2    
+    fi
+}
+
 consensus(){
     outdir=$1
     output_name=$2

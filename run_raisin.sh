@@ -241,7 +241,7 @@ fi
 # #### * Set main output path and make log file ####
 output_path="$WORKING_DIR"
 log_path="$WORKING_DIR"/"$OUTPUT_NAME".log
-outdir=$WORKING_DIR/raisin_results_"$MODE"
+outdir="$WORKING_DIR"/raisin_results_"$MODE"
 source $(dirname $0)/raisin_functions.sh
 
 if [ ! -d "$output_path" ]
@@ -373,6 +373,18 @@ then
 else
   if [ $INPUT == "SEQ" ]
   then
+    # trim short reads
+    trim_filt "$WORKING_DIR" $THREADS $FWD $REV
+
+    if (file "$FWD" | grep -q compressed ) ; then  # if file is compressed, then use different basename extension
+      FWD="$WORKING_DIR"/$(basename $FWD .fastq.gz).filtered.fastq.gz
+      REV="$WORKING_DIR"/$(basename $REV .fastq.gz).filtered.fastq.gz
+    else
+        FWD="$WORKING_DIR"/$(basename $FWD .fastq).filtered.fastq.gz
+        REV="$WORKING_DIR"/$(basename $REV .fastq).filtered.fastq.gz
+    fi
+    # run multi qc on trimmed reads
+    run_multiqc "$WORKING_DIR" "$FWD" "$REV" "$THREADS"
     consensus \
         $outdir \
         $OUTPUT_NAME \
