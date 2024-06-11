@@ -6,13 +6,14 @@ import sys
 from Bio import SeqIO
 from universal_functions import *
 
+# Import in sys arguments passed from run_raisin
 vcf_file = sys.argv[1]
 gbk_file = sys.argv[2]
 mode = sys.argv[3]
 output_name = sys.argv[4]
 output_dir = sys.argv[5]
 
-if len(sys.argv) == 7:
+if len(sys.argv) == 7: # only applicable for anchor samples
     mafft = sys.argv[6]
 
 
@@ -25,7 +26,6 @@ for r in SeqIO.parse(open(gbk_file,"r"), "genbank"):
     if reference == "":
         reference = ''.join(list(r.seq))
     for f in r.features:
-        # print("Type: ", f.type)
         if f.type == "source":
             org_id = gbk_file.replace(".gb","")
             if 'organism' in f.qualifiers:
@@ -42,7 +42,6 @@ for r in SeqIO.parse(open(gbk_file,"r"), "genbank"):
                 label = label + str(i)  # nuclear export protein 0, nuclear export protein 1
                 start = str(f.location.parts[i]).split('[')[1].split(']')[0].split(':')[0]
                 end = str(f.location.parts[i]).split('[')[1].split(']')[0].split(':')[1]
-                # print("Label:", label, start, end)
                 features[label] = {}
                 features[label]['start'] = start
                 features[label]['end'] = end
@@ -336,9 +335,6 @@ if mode == "ANCHOR":
                             break
                 elif type(cons_pos) == list and type(alt_pos) != list:
                     print("Type II Deletion")
-                    print("Now at position: ", pos)
-                    print("Cons status: ", cons_pos)
-                    print("Deletion list: ", deletion_pos)
                     # Grab all the positions of the deletion
                     deletion_pos.append(pos)
                     strain_deletion.append(alt_pos)

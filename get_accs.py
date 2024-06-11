@@ -7,7 +7,6 @@ acc = sys.argv[1]
 email = sys.argv[2]
 outdir = sys.argv[3]
 log_path = sys.argv[4]
-# Entrez.email = 'dyarmosh@atcc.org'
 Entrez.email = email
 
 if not os.path.exists(f'{outdir}/{acc}.fasta') and not os.path.exists(f'{outdir}/{acc}.gbk'):

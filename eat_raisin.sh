@@ -4,17 +4,18 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --partition=normal
 #SBATCH --job-name=raisin_test
+#SBATCH --output=/home/shared/projects/RAISIN/asm_2024/slurm_%j.out
 
 source /opt/conda/etc/profile.d/conda.sh
-conda activate oatmeal_2024JAN_V2
+conda activate oatmeal_2024JAN_V2.bak
 
-ngs_ids=(
-    "ILS3_2023AB05_ML-1015" # Standard
-)
+# ngs_ids=(
+#     "ILS3_2023AB05_ML-1015" # Standard
+# )
 
-references=(
-    "OP213369.1.fasta" # Reference download 
-)
+# references=(
+#     "OP213369.1.fasta" # Reference download 
+# )
 
 
 # vcf="/home/shared/service-data/863/ILM3_2023CF07_NR-59685_EPI_ISL_18507690/reads_to_reference/ILM3_2023CF07_NR-59685_reads_to_reference_EPI_ISL_18507690_final.vcf"
@@ -24,15 +25,15 @@ references=(
 # # python msa_raisin.py
 # python universal_raisin.py $vcf $gbk "ANCHOR" "full_test" $outdir $mafft
 
-working_dir="/home/shared/projects/RAISIN/testing"
+working_dir="/home/shared/projects/RAISIN/asm_2024"
 #########? STANDARD TEST: SEQ MODE ######################## (with reference download)
 ngs_ids=(
-    "ILS3_2023AB05_ML-1015" # Standard
+    # "ILS3_2023AB05_ML-1015" # Standard
     "ILM3_2024AH04_229E-HTB-55_P3" # submission 955
 )
 
 references=(
-    "OP213369.1.fasta"
+    # "OP213369.1.fasta"
     "MW202340.1.fasta"
 )
 
@@ -58,6 +59,7 @@ references=(
 #         -t 16 \
 #         -n "$ref_no_ext" \
 #         -e "dyarmosh@atcc.org" \
+#         -q 0.10 \
 #         -d
 
 # done 
@@ -65,20 +67,20 @@ references=(
 ######################################################?
 
 #########? STANDARD TEST: VCF MODE ######################## (with NO reference download)
-vcfs=(
-    "/home/shared/service-data/994/ILM3_2024AN04_NR-540_AF528167/consensus_results-notds/ILM3_2024AN04_NR-540_reads_to_reference_AF528167_lofreq.vcf"
-    "/home/shared/service-data/955/ILM3_2024AH06_229E-HTB-46_P3_MW202340.1/consensus_results-notds/ILM3_2024AH06_229E-HTB-46_P3_reads_to_reference_MW202340.1_lofreq.vcf" # submission 955
-)
+# vcfs=(
+#     "/home/shared/service-data/994/ILM3_2024AN04_NR-540_AF528167/consensus_results-notds/ILM3_2024AN04_NR-540_reads_to_reference_AF528167_lofreq.vcf"
+#     "/home/shared/service-data/955/ILM3_2024AH06_229E-HTB-46_P3_MW202340.1/consensus_results-notds/ILM3_2024AH06_229E-HTB-46_P3_reads_to_reference_MW202340.1_lofreq.vcf" # submission 955
+# )
 
-sample_names=(
-    "NR-540_vcf_mode" #994
-    "HTB-46_vcf_mode" #955
-)
+# sample_names=(
+#     "NR-540_vcf_mode" #994
+#     "HTB-46_vcf_mode" #955
+# )
 
-references=(
-    "AF528167.fasta"
-    "MW202340.1.fasta"
-)
+# references=(
+#     "AF528167.fasta"
+#     "MW202340.1.fasta"
+# )
 
 # for (( i=0; i<${#vcfs[@]}; i++ ));
 # do
@@ -106,30 +108,30 @@ references=(
 #########* COMPARE TEST
 
 #! Compare with results in submission 961 and 955 (last sample)
-var_txt_1_paths=(
-    "/home/shared/service-data/804/roundthree_MW202340.1/ILM3_2023CB06_229E-CCL-185-Passage-1_p3/consensus_results-notds/ILM3_2023CB06_229E-CCL-185-Passage-1_reads_to_reference_MW202340.1_lofreq_variants.txt"
-    "/home/shared/service-data/804/roundthree_MW202340.1/ILM3_2023CB07_229E-CRL-3560-Passage-1_p3/consensus_results-notds/ILM3_2023CB07_229E-CRL-3560-Passage-1_reads_to_reference_MW202340.1_lofreq_variants.txt"
-    "/home/shared/service-data/843/ILM3_2023CD03_229E-HTB-55_P1_MW202340.1_consensus/consensus_results-notds/ILM3_2023CD03_229E-HTB-55_P1_reads_to_reference_MW202340.1_lofreq_variants.txt"
-)
+# var_txt_1_paths=(
+#     "/home/shared/service-data/804/roundthree_MW202340.1/ILM3_2023CB06_229E-CCL-185-Passage-1_p3/consensus_results-notds/ILM3_2023CB06_229E-CCL-185-Passage-1_reads_to_reference_MW202340.1_lofreq_variants.txt"
+#     "/home/shared/service-data/804/roundthree_MW202340.1/ILM3_2023CB07_229E-CRL-3560-Passage-1_p3/consensus_results-notds/ILM3_2023CB07_229E-CRL-3560-Passage-1_reads_to_reference_MW202340.1_lofreq_variants.txt"
+#     "/home/shared/service-data/843/ILM3_2023CD03_229E-HTB-55_P1_MW202340.1_consensus/consensus_results-notds/ILM3_2023CD03_229E-HTB-55_P1_reads_to_reference_MW202340.1_lofreq_variants.txt"
+# )
 
 
-var_txt_2_paths=(
-    "/home/shared/service-data/942/ILM3_2024AF05_229E-CCL-185_Passage_3_Day_7_MW202340.1/consensus_results-notds/ILM3_2024AF05_229E-CCL-185_Passage_3_Day_7_reads_to_reference_MW202340.1_lofreq_variants.txt" 
-    "/home/shared/service-data/942/ILM3_2024AF06_229E-CRL-3560_Passage_3_Day_7_MW202340.1/consensus_results-notds/ILM3_2024AF06_229E-CRL-3560_Passage_3_Day_7_reads_to_reference_MW202340.1_lofreq_variants.txt"
-    "/home/shared/service-data/955/ILM3_2024AH04_229E-HTB-55_P3_MW202340.1/consensus_results-notds/ILM3_2024AH04_229E-HTB-55_P3_reads_to_reference_MW202340.1_lofreq_variants.txt"
-)
+# var_txt_2_paths=(
+#     "/home/shared/service-data/942/ILM3_2024AF05_229E-CCL-185_Passage_3_Day_7_MW202340.1/consensus_results-notds/ILM3_2024AF05_229E-CCL-185_Passage_3_Day_7_reads_to_reference_MW202340.1_lofreq_variants.txt" 
+#     "/home/shared/service-data/942/ILM3_2024AF06_229E-CRL-3560_Passage_3_Day_7_MW202340.1/consensus_results-notds/ILM3_2024AF06_229E-CRL-3560_Passage_3_Day_7_reads_to_reference_MW202340.1_lofreq_variants.txt"
+#     "/home/shared/service-data/955/ILM3_2024AH04_229E-HTB-55_P3_MW202340.1/consensus_results-notds/ILM3_2024AH04_229E-HTB-55_P3_reads_to_reference_MW202340.1_lofreq_variants.txt"
+# )
 
-var_txt_1_names=(
-    "Passage_3_CCL-185"
-    "Passage_3_CRL-3560"
-    "Passage_1_HTB-55"
-)
+# var_txt_1_names=(
+#     "Passage_3_CCL-185"
+#     "Passage_3_CRL-3560"
+#     "Passage_1_HTB-55"
+# )
 
-var_txt_2_names=(
-    "Passage_3_Day_7_CCL-185"
-    "Passage_3_Day_7_CRL-3560"
-    "Passage_2_HTB-55"
-)
+# var_txt_2_names=(
+#     "Passage_3_Day_7_CCL-185"
+#     "Passage_3_Day_7_CRL-3560"
+#     "Passage_2_HTB-55"
+# )
 
 
 # for (( i=0; i<${#var_txt_1_paths[@]}; i++ ));
@@ -162,14 +164,16 @@ ngs_ids=(
     # "ILM3_2024AL06_NR-59711" # 982
     # "ILM3_2024AB07_NR-59705" # 909
     # "ILM3_2023AR07_NR-59317" # 541 # type III variant
-    "ILM3_2023AN04_NR-59129" # 524 # type II deletion + insertion
+    # "ILM3_2023AN04_NR-59129" # 524 # type II deletion + insertion
+    "ILM1_2023AG12_NRC-59104" # 483 # original BEI did not assign coverage + frequency to variant at 26284-26286
 )
 
 references=(
     # "EPI_ISL_18403093.fasta"
     # "EPI_ISL_18432261.fasta"
     # "MT952602.fasta"
-    "EPI_ISL_15509864.fasta"
+    # "EPI_ISL_15509864.fasta"
+    "EPI_ISL_16026423.fasta"
 )
 
 
@@ -185,6 +189,7 @@ do
     ref="${references[i]}"
     ref_no_ext="${ref%.*}" 
     output_dir="$working_dir"/ANCHOR/"$ngs_id"
+    echo "is this running?"
     bash /home/shared/repos/RAISIN_develop/run_raisin.sh \
         -m "ANCHOR" \
         -s "SEQ" \
