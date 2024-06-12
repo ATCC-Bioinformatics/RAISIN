@@ -31,6 +31,25 @@ In ANCHOR mode, a three-way comparison of the anchor sequence, strain sequence, 
 
 ![RAISIN ANCHOR Mode](https://github.com/ATCC-Bioinformatics/RAISIN/blob/develop/readme_images/ANCHOR_V4.jpg)
 
+
+# Installation
+RAISIN is pipeline with mainly Bash and Pipeline scripts. We recommend installing all dependencies through conda or mamba (for faster installation).
+
+First, use conda to create your conda environment:
+```
+conda create --name raisin_env
+conda activate raisin
+```
+Then, install the following packages in the environment. We recommend installing with mamba for faster installation. 
+```
+mamba install gatk4
+mamba install -c bioconda lofreq bwa bedtools qualimap fastp bbmap picard samtools fastqc bcftools
+mamba install multiqc
+mamba install -c conda-forge biopython pandas
+mamba install conda-forge::r-gplots
+mamba install conda-forge::r-gsalib
+```
+
 # Usage
 ```
     Usage: 
