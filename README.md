@@ -117,10 +117,10 @@ ANCHOR mode uses a variant classification system (I-IV) to differentiate between
 
 ![RAISIN ANCHOR Mode](https://github.com/ATCC-Bioinformatics/RAISIN/blob/develop/readme_images/variant_classifications_anchor.png)
 
-Legend:
-* ANCHOR:a scientific community recognized or experiment-specific sequence
-* STRAIN: a sequence that is more closely related to the sample
-* SAMPLE: a consensus sequence of the sample reads mapped to the strain sequence
+*Legend:*
+* **ANCHOR**: a scientific community recognized or experiment-specific sequence
+* **STRAIN**: a sequence that is more closely related to the sample
+* **SAMPLE**: a consensus sequence of the sample reads mapped to the strain sequence
 
 #### Examples: 
 Example to run ANCHOR mode and download reference + annotation from NCBI: 
