@@ -20,9 +20,9 @@ EOF
     ####### RAISIN Modes ####################
     ----------------------------------------------------------------------------------------------
     STANDARD mode:
-      # Example 1: bash run_raisin.sh -m STANDARD -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results 
+      # Example 1: bash raisin.sh -m STANDARD -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results 
                       -f sample1 -n MN02121.1 -e username@gmail.com -d
-      # Example 2: bash run_raisin.sh -m STANDARD -s VCF -v sample1.vcf -o sample1_results 
+      # Example 2: bash raisin.sh -m STANDARD -s VCF -v sample1.vcf -o sample1_results 
                       -f sample1 -r MN02121.1.fasta -g MN02121.1.gbk
       -m STANDARD,
       ****** Inputs ******
@@ -45,9 +45,9 @@ EOF
           -e for Entrez email address to use to download references,
     ----------------------------------------------------------------------------------------------
     ANCHOR mode:
-      # Example 1: bash run_raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor
+      # Example 1: bash raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor
                           -n MN02121.1 -b MZ45991.1 -e username@gmail.com -d
-      # Example 2: bash run_raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor
+      # Example 2: bash raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor
                           -r MN02121.1.fasta -a MZ45991.1.fasta -k MZ45991.1.gbk
       -m ANCHOR,
       ****** Inputs ******
@@ -68,9 +68,9 @@ EOF
 
     ----------------------------------------------------------------------------------------------
     COMPARE mode:
-      # Example 1: bash run_raisin.sh -m COMPARE -x sample1_variants.txt -y sample2_variants.txt 
+      # Example 1: bash raisin.sh -m COMPARE -x sample1_variants.txt -y sample2_variants.txt 
                     -o comp_results -f sample1_vs_sample2 -X Sample_1 -Y Sample_2
-      -m standard,
+      -m COMPARE,
       -x filepath to first variants.txt to compare,
       -y filepath to second variants.txt to compare,
       -X identifier for first variants.txt, i.e. Passage_0
@@ -79,7 +79,7 @@ EOF
     
     Additional Help:
     ######## File Inputs  ####################
-    If user choose either STANDARD or ANCHOR mode, there are two options for file input. Users can choose between either submitting deinterleaved Illumina
+    If the user chooses STANDARD mode, there are two options for file input. Users can choose between either submitting deinterleaved Illumina
     sequencing readsets or submitting VCF files. 
     
     ######## References ####################
@@ -88,8 +88,8 @@ EOF
     GenBank file based on the given NCBI Accession ID. 
     
     Option 1:
-      -r/a for path to reference fasta file (required if not using -d flag),
-      -g/k for path to reference gbk file (required if not using -d flag),
+      -r/a for path to reference fasta file (required if not using -d flag), (use -a for reference path for anchor)
+      -g/k for path to reference gbk file (required if not using -d flag), (use -k for annotations path for anchor)
     Option 2:
       -n/b for NCBI Accession ID, i.e. OP213694,
       -d to download reference and gbk file based on NCBI assession ID or virus, -a or -n flags must be provided,
