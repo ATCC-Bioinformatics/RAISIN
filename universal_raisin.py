@@ -415,7 +415,6 @@ if mode == "ANCHOR":
                                 msa_variants[full_position].append(original_aa+str(codon_number)+mutated_aa)
 
     #! Merge with vcf to get frequency information for type II variants
-    # temp_msa = {k:msa_variants[k] for k in msa_variants.keys()}
     for anchor_pos in msa_variants.keys():
         for anchor_var in variants.keys():
             if int(anchor_pos) == int(anchor_var):
