@@ -41,6 +41,7 @@ In STANDARD mode, users can either use Illumina sequencing FASTQs or a VCF as th
 
 STANDARD mode is great if you're looking to obtain additional metadata for your viral variants, specifically metadata on where variants occur in the genome and the resulting amino acid mutations. 
 
+#### Examples: 
 Example if choosing to run with Illumina readset and would like to download reference + annotation from NCBI: 
 ```
 bash raisin.sh -m STANDARD -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results \
@@ -87,7 +88,7 @@ In COMPARE mode, variants from two samples are compared together. This mode requ
 
 COMPARE mode is ideal in case where you are comparing two passages or samples against each other to not only determine what variants are shared with each other, but to see the frequency differences of those variants between two samples and to see if any variants were lost or gained between the two samples. 
 
-Example to run COMPARE mode: 
+#### Example: 
 ```
 bash raisin.sh -m COMPARE -x sample1_variants.txt -y sample2_variants.txt \
                     -o comp_results -f sample1_vs_sample2 -X Sample_1 -Y Sample_2
@@ -117,10 +118,11 @@ ANCHOR mode uses a variant classification system (I-IV) to differentiate between
 ![RAISIN ANCHOR Mode](https://github.com/ATCC-Bioinformatics/RAISIN/blob/develop/readme_images/variant_classifications_anchor.png)
 
 Legend:
-ANCHOR:a scientific community recognized or experiment-specific sequence
-STRAIN: a sequence that is more closely related to the sample
-SAMPLE: a consensus sequence of the sample reads mapped to the strain sequence
+* ANCHOR:a scientific community recognized or experiment-specific sequence
+* STRAIN: a sequence that is more closely related to the sample
+* SAMPLE: a consensus sequence of the sample reads mapped to the strain sequence
 
+#### Examples: 
 Example to run ANCHOR mode and download reference + annotation from NCBI: 
 ```
 bash raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor \
