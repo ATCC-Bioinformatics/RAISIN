@@ -1,6 +1,8 @@
 # RAISIN
 Retrieving Amino acid Implications from Sequencing IteratioNs (RAISIN): A Pipeline Intended to Better Characterize Viral Genomic Variants
 
+ATCC presents RAISIN (Retrieving Amino acid Implications from Sequencing IteratioNs), a simple, fast, and accurate variant annotation pipeline built for characterizing and notating viral genomic variants.
+
 ```
 .___      .    _   _____ _ __    _
 /   \    /|    |  (      | |\   | 
@@ -8,16 +10,26 @@ Retrieving Amino acid Implications from Sequencing IteratioNs (RAISIN): A Pipeli
 |  \   /---'\  |      |  | |  \ | 
 /   \,'      \ / \___.'  / |   \| 
 ```
-# Introduction 
-ATCC presents RAISIN (Retrieving Amino acid Implications from Sequencing IteratioNs), a simple, fast, and accurate variant annotation pipeline built for characterizing and notating viral genomic variants.
+# RAISIN Overview
 
 RAISIN has three modes: STANDARD, ANCHOR, and COMPARE, each of which allow users to get a different glimpse of the variants for a sample.
 
-In STANDARD mode, users can either use Illumina sequencing FASTQs or a VCF as the main input. If given the reads, STANDARD RAISIN will map the reads to a user-given reference, call variants, and then call consensus. The generated VCF is then analyzed against the user-given annotation file to better characterize each variant.  
+![RAISIN Overview](https://github.com/ATCC-Bioinformatics/RAISIN/blob/develop/readme_images/RAISIN%20OVERVIEW_v3.jpg)
 
-In COMPARE mode, variants from two samples are compared together. This mode requires two RAISIN STANDARD mode output TSVs as input so we recommend running STANDARD mode for both samples first and then running COMPARE afterwards. Any samples that are compared with COMPARE mode must use the same reference when variants were called in STANDARD mode.
+### STANDARD mode
+In STANDARD mode, users can either use Illumina sequencing FASTQs or a VCF as the main input. If given the reads, STANDARD RAISIN will map the reads to a user-given reference, call variants, and then call consensus. The generated VCF is then analyzed against the user-given annotation file to better characterize each variant. If a VCF is given, the consensus step is skipped, and the mode moves straight to variant analysis. The main output of STANDARD mode is a TSV containing all variants with their respective genomic region and amino acid translation. 
 
+![RAISIN STANDARD Mode](https://github.com/ATCC-Bioinformatics/RAISIN/blob/develop/readme_images/STANDARD_V5.jpg)
+
+### COMPARE mode
+In COMPARE mode, variants from two samples are compared together. This mode requires two RAISIN STANDARD mode output TSVs as input so we recommend running STANDARD mode for both samples first and then running COMPARE afterwards. Any samples that are compared with COMPARE mode must use the same reference when variants were called in STANDARD mode. In other words, if you were to compare sample 1 and sample 2, they must both have variants called using the same reference. The main output of COMPARE mode is a TSV with an additional column displaying the frequncy difference between the two samples.
+
+![RAISIN COMPARE Mode](https://github.com/ATCC-Bioinformatics/RAISIN/blob/develop/readme_images/COMPARE_V4.jpg)
+
+### ANCHOR mode
 In ANCHOR mode, a three-way comparison of the anchor sequence, strain sequence, and consensus sequence is performed. Inputs for anchor mode are the path to Illumina sequencing readset, the path to the strain reference, the path to anchor reference, and the path to anchor GBK. 
+
+![RAISIN ANCHOR Mode](https://github.com/ATCC-Bioinformatics/RAISIN/blob/develop/readme_images/ANCHOR_V4.jpg)
 
 # Usage
 ```
