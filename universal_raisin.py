@@ -451,8 +451,8 @@ if mode == "ANCHOR":
         # Add to variants
         msa_variants[anchor_pos] = [var_type, "II", anchor_nuc, ref, cons, freq, region, aa_mut]
 
-        # Sort dictionary by position
-        msa_variants_sorted = {key:msa_variants[key] for key in sorted(msa_variants)}
+    # Sort dictionary by position
+    msa_variants_sorted = {key:msa_variants[key] for key in sorted(msa_variants)}
 
     with open(f"{output_dir}/{output_name}_anchored_variants.txt","w") as f:
         f.write("\t".join(["Anchor Position","Variant", "Variant Type", "Anchor Allele","Strain Allele", "Sample Allele",

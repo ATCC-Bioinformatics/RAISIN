@@ -85,6 +85,8 @@ In COMPARE mode, variants from two samples are compared together. This mode requ
 
 ![RAISIN COMPARE Mode](https://github.com/ATCC-Bioinformatics/RAISIN/blob/develop/readme_images/COMPARE_V4.jpg)
 
+COMPARE mode is ideal in case where you are comparing two passages or samples against each other to not only determine what variants are shared with each other, but to see the frequency differences of those variants between two samples and to see if any variants were lost or gained between the two samples. 
+
 Example to run COMPARE mode: 
 ```
 bash raisin.sh -m COMPARE -x sample1_variants.txt -y sample2_variants.txt \
@@ -107,6 +109,17 @@ bash raisin.sh -m COMPARE -x sample1_variants.txt -y sample2_variants.txt \
 In ANCHOR mode, a three-way comparison of the anchor sequence, strain sequence, and consensus sequence is performed. Inputs for anchor mode are the path to Illumina sequencing readset, the path to the strain reference, the path to anchor reference, and the path to anchor GBK. 
 
 ![RAISIN ANCHOR Mode](https://github.com/ATCC-Bioinformatics/RAISIN/blob/develop/readme_images/ANCHOR_V4.jpg)
+
+ANCHOR mode is a bit of special case but it is ideal to use in situations where you want to compare your sample to a strain reference and a species reference. A strain reference would be a sequence that is the most similar to your sample. A species reference would be a sequence that is most similar to the expected species of your sample. With these sequences, ANCHOR mode will return the variants from each. The resulting output file will show the variants found and will report all variants using the coordinate sequence of the anchor/species reference.
+
+ANCHOR mode uses a variant classification system (I-IV) to differentiate between variants. For definition of each classification, see below: 
+
+![RAISIN ANCHOR Mode](https://github.com/ATCC-Bioinformatics/RAISIN/blob/develop/readme_images/variant_classifications_anchor.png)
+
+Legend:
+ANCHOR:a scientific community recognized or experiment-specific sequence
+STRAIN: a sequence that is more closely related to the sample
+SAMPLE: a consensus sequence of the sample reads mapped to the strain sequence
 
 Example to run ANCHOR mode and download reference + annotation from NCBI: 
 ```
