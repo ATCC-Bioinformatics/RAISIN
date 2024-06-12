@@ -27,7 +27,7 @@ conda activate raisin_env
 Then, install the following packages in the environment. We recommend installing with mamba for faster installation. 
 ```
 mamba install gatk4
-mamba install -c bioconda lofreq bwa bedtools qualimap fastp bbmap picard samtools fastqc bcftools
+mamba install -c bioconda lofreq bwa bedtools qualimap fastp bbmap picard samtools mafft fastqc bcftools
 mamba install multiqc
 mamba install -c conda-forge biopython pandas
 mamba install conda-forge::r-gplots
@@ -41,11 +41,13 @@ In STANDARD mode, users can either use Illumina sequencing FASTQs or a VCF as th
 
 STANDARD mode is great if you're looking to obtain additional metadata for your viral variants, specifically metadata on where variants occur in the genome and the resulting amino acid mutations. 
 
+Example if choosing to run with Illumina readset and would like to download reference + annotation from NCBI: 
 ```
-# Example if choosing to run with Illumina readset and would like to download reference + annotation from NCBI: 
 bash raisin.sh -m STANDARD -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results \
                     -f sample1 -n MN02121.1 -e username@gmail.com -d
-# Example if choosing to run with vcf: 
+```
+Example if choosing to run with vcf: 
+```
 bash raisin.sh -m STANDARD -s VCF -v sample1.vcf -o sample1_results \
                     -f sample1 -r MN02121.1.fasta -g MN02121.1.gbk
 ```
@@ -83,8 +85,8 @@ In COMPARE mode, variants from two samples are compared together. This mode requ
 
 ![RAISIN COMPARE Mode](https://github.com/ATCC-Bioinformatics/RAISIN/blob/develop/readme_images/COMPARE_V4.jpg)
 
+Example to run COMPARE mode: 
 ```
-# Example to run COMPARE mode: 
 bash raisin.sh -m COMPARE -x sample1_variants.txt -y sample2_variants.txt \
                     -o comp_results -f sample1_vs_sample2 -X Sample_1 -Y Sample_2
 ```
@@ -106,12 +108,14 @@ In ANCHOR mode, a three-way comparison of the anchor sequence, strain sequence, 
 
 ![RAISIN ANCHOR Mode](https://github.com/ATCC-Bioinformatics/RAISIN/blob/develop/readme_images/ANCHOR_V4.jpg)
 
+Example to run ANCHOR mode and download reference + annotation from NCBI: 
 ```
-# Example to run ANCHOR mode and download reference + annotation from NCBI: 
 bash raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor \
                           -n MN02121.1 -b MZ45991.1 -e username@gmail.com -d
-# Example to run ANCHOR mode and use filepaths for reference + annotation:
-bash run_raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor \
+```
+Example to run ANCHOR mode and use filepaths for reference + annotation:
+```
+bash raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.gz -o sample1_results -f sample1_vs_anchor \
                           -r MN02121.1.fasta -a MZ45991.1.fasta -k MZ45991.1.gbk
 ```
 
@@ -141,7 +145,9 @@ bash run_raisin.sh -m ANCHOR -s SEQ -1 sample1_R1.fastq.gz -2 sample1_R2.fastq.g
 
   ```
 
-# References and Annotations for STANDARD or ANCHOR mode
+# Additional Help:
+
+#### References and Annotations
     
 If user choose either STANDARD or ANCHOR mode, a reference and a GenBank file MUST be supplied. A path to both files will suffice BUT users can also provide an NCBI Accession ID and an Entrez email address instead. RAISIN will then download the reference fasta and GenBank file based on the given NCBI Accession ID. 
   
