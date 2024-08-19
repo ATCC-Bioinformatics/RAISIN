@@ -1,6 +1,0 @@
-Position	Reference allele	Alternate allele	Allele frequency	Protein	AA mutation
-10571	G	A	0.370701	ORF1ab polyprotein	A3436T
-11355	C	T	0.056497	ORF1ab polyprotein	A3697V
-11847	A	G	0.152542	ORF1ab polyprotein	K3861R
-14679	T	C	0.051151	ORF1ab polyprotein	--
-23607	G	A	0.311450	surface glycoprotein	R682Q
