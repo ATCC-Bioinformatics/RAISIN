@@ -1,0 +1,2 @@
+Chromosome	Start_0index	End_1index	Average_coverage	Protein
+hCoV-19/USA/CO-CDPHE-41441941/2023|EPI_ISL_18507690|2023-10-14	342	583	0	ORF1ab polyprotein;ORF1a polyprotein

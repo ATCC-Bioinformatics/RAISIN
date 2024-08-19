@@ -77,13 +77,14 @@ for line in open(vcf_file):
         ref = line[3]
         alt = line[4]
         af = [e.replace("AF=","") for e in line[7].split(';') if "AF" in e][0]
+        cov = [e.replace('DP=','') for e in line[7].split(';') if 'DP' in e][0]
         if pos in variants.keys():
             num_alts +=1
             pos = pos + "_"+str(num_alts)
-            variants[pos] = [ref,alt,af]
+            variants[pos] = [ref,alt,cov,af]
         else:
             num_alts = 1
-            variants[pos] = [ref,alt,af]
+            variants[pos] = [ref,alt,cov,af]
 
 ## If there are no variants, exit since there is nothing else to do.
 # Only applies to STANDARD mode (as in ANCHOR, we can pull MSA variants)
@@ -94,8 +95,8 @@ if len(list(variants.keys())) == 0 and mode == "STANDARD":
 # convert vcf strain position to anchor positions
 if mode == "ANCHOR":
     anchor, strain, sample_consensus = process_alignment(mafft)
-    anchor_strain_dict = anchor_genomes(anchor, strain)
-    anchor_consen_dict = anchor_genomes(anchor, sample_consensus)
+    anchor_strain_dict = anchor_genomes(anchor, strain) #dictionary of positions matching up anchor to strain coordinates.
+    anchor_consen_dict = anchor_genomes(anchor, sample_consensus) #!this doesn't do anything?
     anchor_variants = {}
     strain_positions = list(variants.keys())
     for i in range(0, len(strain_positions)):
@@ -202,7 +203,7 @@ for position in variants.keys():
 
 ######## Write to variants.txt ##########
 with open(f"{output_dir}/{output_name}_variants.txt","w") as f:
-    f.write("\t".join(["Position","Reference allele","Alternate allele","Allele frequency","Protein","AA mutation"]))
+    f.write("\t".join(["Position","Coverage","Reference allele","Alternate allele","Allele frequency","Protein","AA mutation"]))
     f.write("\n")
     for k in variants.keys():
         f.write(k+"\t"+"\t".join(variants[k])+"\n")
@@ -233,12 +234,10 @@ with open(f"{output_dir}/{output_name}_lowcoverage.txt","w") as f:
 
 ## Find MSA variants
 if mode == "ANCHOR":
-
     # Removing the dashes allows us to parse through the unaligned sequences    
     anchor_seq=anchor.replace("-", "")
     strain_seq=strain.replace("-", "")
     consen_seq=sample_consensus.replace("-", "")
-
     # Since the gbk don't have UTR regions, we need to put them in manually
     # To do so, figure out where the first region begins and the last region ends
     first_start = min([int(features[k]['start']) for k in features.keys()])
@@ -248,7 +247,6 @@ if mode == "ANCHOR":
         'reference2regionposition': '', 'strand': '', 'aa_seq': 'n/a', 'nt_seq': "n/a"}
     features["3'UTR0"] = {'start': str(last_end+1), 'end': str(len(reference)-1), 
         'reference2regionposition': '', 'strand': '', 'aa_seq': 'n/a', 'nt_seq': "n/a"}
-
     deletion_pos = []
     strain_deletion = []
     msa_variants = {}
@@ -279,9 +277,9 @@ if mode == "ANCHOR":
                     insertion_nucleotides = strain_seq[alt_pos[0]:ins_end]
                     variant_type = determine_variant_type(ref, alt, cons)
                     if "'UTR" in protein:
-                        msa_variants[ref_start+1] = ["INS", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", protein, "n/a"]
+                        msa_variants[ref_start+1] = ["INS", variant_type, ref.upper(), alt.upper(), cons.upper(), "n/a", "1.000000", protein, "n/a"]
                     else:
-                        msa_variants[ref_start+1] = ["INS", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000"]
+                        msa_variants[ref_start+1] = ["INS", variant_type, ref.upper(), alt.upper(), cons.upper(), "n/a", "1.000000"]
                         mutated_region = get_mutated_region(protein,reference,ref_start,ref,alt,gbk_file)
                         mutated_translation = ""
                         for i in range(0,len(mutated_region),3):
@@ -318,11 +316,11 @@ if mode == "ANCHOR":
                         cons = consen_seq[cons_pos[0]]
                         variant_type = determine_variant_type(ref, alt, cons)
                         if "'UTR" in protein:
-                            msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", protein, "n/a"]
+                            msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "n/a","1.000000", protein, "n/a"]
                         else:
                             mutated_region = get_mutated_region(protein,reference,del_start,ref,alt,gbk_file)
                             mutated_translation = ""
-                            msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000"]
+                            msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "n/a","1.000000"]
                             for i in range(0,len(mutated_region),3):
                                 aa = genetic_code(mutated_region[i:i+3].upper())
                                 if i+3>len(mutated_region)-1 or aa == "*":
@@ -357,11 +355,11 @@ if mode == "ANCHOR":
                         cons = consen_seq[cons_pos[0]]
                         variant_type = determine_variant_type(ref, alt, cons)
                         if "'UTR" in protein:
-                            msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", protein, "n/a"]
+                            msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "n/a", "1.000000", protein, "n/a"]
                         else:
                             mutated_region = get_mutated_region(protein,reference,del_start,ref,cons,gbk_file)
                             mutated_translation = ""
-                            msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000"]
+                            msa_variants[del_start] = ["DEL", variant_type, ref.upper(), alt.upper(), cons.upper(), "n/a", "1.000000"]
                             for i in range(0,len(mutated_region),3):
                                 aa = genetic_code(mutated_region[i:i+3].upper())
                                 if i+3>len(mutated_region)-1 or aa == "*":
@@ -388,7 +386,7 @@ if mode == "ANCHOR":
                         break
                     variant_type = determine_variant_type(ref, alt, cons)
                     if "'UTR" in protein:
-                        msa_variants[full_position] = ["SNP", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000", protein, "n/a"]
+                        msa_variants[full_position] = ["SNP", variant_type, ref.upper(), alt.upper(), cons.upper(), "n/a", "1.000000", protein, "n/a"]
                     else:
                         if variant_type == "II": # if consensus is the nucleotide of difference
                             mutated_region = get_mutated_region(protein,reference,pos+1,ref,cons,gbk_file)
@@ -405,7 +403,7 @@ if mode == "ANCHOR":
                                     mutated_aa = genetic_code(mutated_codon.upper())
                                     break
                                     # print(c,mutated_region[i:i+3], region[i:i+3])
-                            msa_variants[full_position] = ["SNP", variant_type, ref.upper(), alt.upper(), cons.upper(), "1.000000"]
+                            msa_variants[full_position] = ["SNP", variant_type, ref.upper(), alt.upper(), cons.upper(), "n/a", "1.000000"]
                             # add notation to VCF
                             if original_aa == mutated_aa:
                                 msa_variants[full_position].append(protein)
@@ -413,18 +411,19 @@ if mode == "ANCHOR":
                             else:
                                 msa_variants[full_position].append(protein)
                                 msa_variants[full_position].append(original_aa+str(codon_number)+mutated_aa)
-
     #! Merge with vcf to get frequency information for type II variants
     # temp_msa = {k:msa_variants[k] for k in msa_variants.keys()}
     for anchor_pos in msa_variants.keys():
         for anchor_var in variants.keys():
             if int(anchor_pos) == int(anchor_var):
                 # print("Anchor pos: ", anchor_var, msa_variants[anchor_pos])
-                frequency = variants[anchor_var][2]
+                frequency = variants[anchor_var][3]
                 cons_allele = variants[anchor_var][1]
-                msa_variants[anchor_pos][5] = frequency
+                cov = variants[anchor_var][2] #not sure what to do with this yet, but it seems like it fits here
+                msa_variants[anchor_pos][6] = frequency
                 msa_variants[anchor_pos][4] = cons_allele
-    
+                msa_variants[anchor_pos][5] = cov #I think this is right?
+                #
     # We need to add any missing vcf variants to the msa
     msa_anchors = list(msa_variants.keys())
     var_anchors = list(variants.keys())
@@ -437,9 +436,10 @@ if mode == "ANCHOR":
         # Grab everything we need from the parsed vcf
         ref = variants[anchor_position][0].upper()
         cons = variants[anchor_position][1].upper()
-        freq = variants[anchor_position][2]
-        region = variants[anchor_position][3]
-        aa_mut = variants[anchor_position][4]
+        cov = variants[anchor_position][2] #I guess these will be needed?
+        freq = variants[anchor_position][3]
+        region = variants[anchor_position][4]
+        aa_mut = variants[anchor_position][5]
         # Determine the variant type, it should either be Type II or Type III
         variant_type = determine_variant_type(anchor_nuc, ref, cons)
         # Determine the type of variant
@@ -450,15 +450,12 @@ if mode == "ANCHOR":
         else:
             var_type = "INS"
         # Add to variants
-        msa_variants[anchor_pos] = [var_type, "II", anchor_nuc, ref, cons, freq, region, aa_mut]
-
+        msa_variants[anchor_pos] = [var_type, "II", anchor_nuc, ref, cons, cov, freq, region, aa_mut]
         # Sort dictionary by position
         msa_variants_sorted = {key:msa_variants[key] for key in sorted(msa_variants)}
-
     with open(f"{output_dir}/{output_name}_anchored_variants.txt","w") as f:
         f.write("\t".join(["Anchor Position","Variant", "Variant Type", "Anchor Allele","Strain Allele", "Sample Allele",
-            "Allele Frequency", "Protein","AA mutation"]))
+            "Coverage", "Allele Frequency", "Protein","AA mutation"]))
         f.write("\n")
         for k in msa_variants_sorted.keys():
             f.write(str(k)+"\t"+"\t".join(msa_variants[k])+"\n")
-    
